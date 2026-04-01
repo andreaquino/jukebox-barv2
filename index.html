@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-PT" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <title>Neon Jukebox - Sugestões</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-[#0b0c10] text-white min-h-screen p-6">
+    
+    <header class="max-w-xl mx-auto mb-10 bg-white/5 p-6 rounded-[32px] border border-white/10">
+        <div class="flex gap-4 items-center">
+            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl">
+            <div class="overflow-hidden">
+                <p id="client-title" class="font-bold truncate text-lg">Aguardando TV...</p>
+                <p id="client-artist" class="text-white/50 text-sm">---</p>
+                <div class="w-full bg-white/10 h-1 rounded-full mt-3">
+                    <div id="client-progress" class="bg-white h-full" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-xl mx-auto">
+        <section class="mb-10">
+            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música..." class="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-[#ff00ff]">
+            <div id="search-results" class="mt-4 flex flex-col gap-2"></div>
+        </section>
+
+        <section>
+            <h2 class="text-xl font-bold mb-4">Fila de Espera</h2>
+            <div id="queue-list" class="flex flex-col gap-4"></div>
+        </section>
+    </main>
+
+    <script>
+        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
+        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('jukebox_user_id', MY_ID);
+
+        // --- ESCUTAR A TV (BROADCAST) ---
+        function updateClientUI(data) {
+            document.getElementById('client-title').innerText = data.title;
+            document.getElementById('client-artist').innerText = data.artist;
+            document.getElementById('client-cover').src = data.cover_url;
+            const percent = (data.progress_ms / data.duration_ms) * 100;
+            document.getElementById('client-progress').style.width = percent + '%';
+        }
+
+        async function initClient() {
+            const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
+            if (data) updateClientUI(data);
+            supabaseClient.channel('c_playback').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'playback_status' }, payload => updateClientUI(payload.new)).subscribe();
+        }
+
+        // --- BUSCA (Pública) ---
+        async function getPublicToken() {
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, body: 'grant_type=client_credentials' });
+            const data = await res.json(); return data.access_token;
+        }
+
+        let searchTimer;
+        function debounceSearch() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(async () => {
+                const query = document.getElementById('searchInput').value;
+                if (query.length < 2) return;
+                const token = await getPublicToken();
+                const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`, { headers: { 'Authorization': 'Bearer ' + token } });
+                const data = await res.json();
+                const results = document.getElementById('search-results');
+                results.innerHTML = "";
+                data.tracks.items.forEach(song => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-4 bg-white/5 p-3 rounded-2xl cursor-pointer hover:bg-white/10";
+                    div.onclick = () => addToQueue(song);
+                    div.innerHTML = `<img src="${song.album.images[2].url}" class="w-10 h-10 rounded"><div><p class="text-sm font-bold">${song.name}</p><p class="text-xs text-white/50">${song.artists[0].name}</p></div>`;
+                    results.appendChild(div);
+                });
+            }, 500);
+        }
+
+        async function addToQueue(song) {
+            const { data: count } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).eq('status', 'pending');
+            if (count && count.length >= 3) return alert("Limite atingido!");
+            const name = prompt("Teu nome?");
+            await supabaseClient.from('queue').insert([{ title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, spotify_uri: song.uri, user_name: name || "Anónimo", user_id: MY_ID, status: 'pending', votes: 0 }]);
+            document.getElementById('search-results').innerHTML = "";
+        }
+
+        async function fetchQueue() {
+            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
+            const container = document.getElementById('queue-list'); container.innerHTML = "";
+            (data || []).forEach(song => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 bg-white/5 p-4 rounded-2xl";
+                div.innerHTML = `<img src="${song.cover_url}" class="w-10 h-10 rounded-lg"><div class="flex-1 overflow-hidden"><p class="text-xs font-bold truncate">${song.title}</p><p class="text-[10px] text-white/50 uppercase">${song.user_name}</p></div> <button onclick="upvote('${song.id}')" class="bg-white/10 px-3 py-2 rounded-xl text-xs">❤️ ${song.votes}</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        async function upvote(id) {
+            const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
+            if (v && v.length > 0) return alert("Já votaste!");
+            await supabaseClient.from('votes').insert([{ song_id: id, user_id: MY_ID }]);
+            const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
+            await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
+        }
+
+        initClient();
+        fetchQueue();
+        supabaseClient.channel('q_client').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+    </script>
+</body>
+</html>
