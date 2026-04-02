@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha TV - Smooth Transition</title>
+    <title>Portinha TV - Smart Queue System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -49,7 +49,7 @@
             <div class="w-[30vw] flex-shrink-0"><img id="tv-cover" src="" class="w-full aspect-square rounded-[4vh] shadow-2xl border border-white/5 object-cover"></div>
             <div id="title-container" class="flex-1 min-w-0 flex flex-col justify-center overflow-hidden">
                 <h1 id="tv-title" class="font-[900] tracking-tighter leading-tight italic">...</h1>
-                <p id="tv-artist" class="text-[2.5vw] text-white/40 font-medium mb-10 truncate italic">A carregar...</p>
+                <p id="tv-artist" class="text-[2.5vw] text-white/40 font-medium mb-10 truncate italic">Sincronizando...</p>
                 <div id="tv-suggester-box" class="hidden inline-flex items-center gap-6 px-8 py-4 glass-panel rounded-[20px] border-l-[0.8vw] border-l-[#d4af37] w-fit">
                     <span class="text-[1.3vw] font-black uppercase tracking-widest text-white/80">PEDIDO: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
                 </div>
@@ -131,6 +131,14 @@
             }
         }
 
+        // --- FUNÇÃO PARA GARANTIR QUE NÃO HÁ REPEAT ---
+        async function disableRepeat() {
+            if (!spotifyAccessToken) return;
+            await fetch("https://api.spotify.com/v1/me/player/repeat?state=off", { 
+                method: 'PUT', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } 
+            });
+        }
+
         async function monitor() {
             if (!spotifyAccessToken) return;
             if (expiresAt && (Math.floor(Date.now() / 1000) > (expiresAt - 300))) await refreshTokens();
@@ -140,10 +148,10 @@
                 if (res.status === 200) {
                     const data = await res.json(); if (!data.item) return;
                     
-                    // Se mudou de música, resetamos o bloqueio do auto-next
                     if (localStorage.getItem('current_uri') !== data.item.uri) {
-                        isProcessingAuto = false;
+                        isProcessingAuto = false; // Reset para a nova música
                         localStorage.setItem('current_uri', data.item.uri);
+                        disableRepeat(); // Garante que o repeat está OFF em cada música nova
                     }
 
                     localProgressMs = data.progress_ms; durationMs = data.item.duration_ms;
@@ -162,28 +170,29 @@
                     if (isSuggester) { document.getElementById('tv-suggester-box').classList.remove('hidden'); document.getElementById('tv-suggester').innerText = currentUser; } 
                     else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
 
-                    // --- LÓGICA AUTO-NEXT REFORÇADA ---
-                    // Só dispara se tivermos tempo real (>0), se faltarem menos de 3 seg e se ainda não processámos esta música
-                    if (autoMode && durationMs > 0 && (durationMs - localProgressMs < 3500) && !isProcessingAuto) {
-                        isProcessingAuto = true;
-                        playNext();
+                    // --- LÓGICA DE FILA INTELIGENTE (15 seg antes do fim) ---
+                    if (autoMode && durationMs > 0 && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
+                        isProcessingAuto = true; // Bloqueia para não adicionar 1000 vezes a mesma música
+                        prepareNextFromQueue();
                     }
                 }
             } catch (e) { console.error(e); }
         }
 
-        async function playNext() {
+        async function prepareNextFromQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
             if (data?.length > 0) {
                 const s = data[0];
-                await fetch(`https://api.spotify.com/v1/me/player/play`, { 
-                    method: 'PUT', 
-                    headers: { 'Authorization': 'Bearer ' + spotifyAccessToken },
-                    body: JSON.stringify({ uris: [s.spotify_uri] })
+                // ADICIONAR À QUEUE DO SPOTIFY (POST) em vez de dar PLAY direto
+                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { 
+                    method: 'POST', 
+                    headers: { 'Authorization': 'Bearer ' + spotifyAccessToken }
                 });
+                
                 localStorage.setItem('last_uri', s.spotify_uri);
                 localStorage.setItem('last_user', s.user_name);
                 await supabaseClient.from('queue').update({ status: 'played' }).eq('id', s.id);
+                console.log("Injetada na fila do Spotify: " + s.title);
             }
         }
 
@@ -196,7 +205,7 @@
             container.innerHTML = "";
             if (suggestions?.length > 0) {
                 suggestions.forEach(s => {
-                    const div = document.createElement('div'); div.className = "flex items-center gap-4 animate-in fade-in slide-in-from-right duration-500";
+                    const div = document.createElement('div'); div.className = "flex items-center gap-4 animate-in fade-in duration-500";
                     div.innerHTML = `<img src="${s.cover_url}" class="w-16 h-16 rounded-xl object-cover shadow-lg border border-white/5"> <div class="flex-1 min-w-0"><p class="text-xl font-black truncate text-white italic leading-tight">${s.title}</p><p class="text-sm text-[#d4af37] uppercase font-black truncate mt-1">Pedido: ${s.user_name}</p></div>`;
                     container.appendChild(div);
                 });
