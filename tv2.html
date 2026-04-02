@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portinha TV - Cinematic Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
+        body, html { background-color: #000; color: white; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden !important; font-family: 'Inter', sans-serif; }
+        
+        /* Fundo desfocado muito suave para dar o look "Smart TV" */
+        #bg-blur { position: fixed; inset: 0; background-size: cover; background-position: center; filter: blur(80px) brightness(0.3) saturate(1.5); transform: scale(1.1); z-index: 1; transition: background-image 2.5s ease-in-out; }
+        
+        /* Vinheta mais escura na direita e baixo para dar leitura aos textos */
+        .vignette { position: fixed; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.8) 70%, rgba(0,0,0,0.95) 100%), linear-gradient(0deg, rgba(0,0,0,0.8) 0%, transparent 40%); z-index: 2; }
+        
+        #main-content { position: relative; z-index: 10; display: flex; height: 100vh; width: 100vw; padding: 4vw; box-sizing: border-box; opacity: 0; transition: opacity 1.2s ease; gap: 4vw; }
+        
+        .glass-panel { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(50px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); transition: width 1s linear; }
+        
+        #qrcode-container { background: white; padding: 10px; border-radius: 16px; display: inline-block; flex-shrink: 0; }
+        
+        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+
+        .admin-trigger { position: fixed; top: 0; left: 0; width: 150px; height: 150px; z-index: 10001; }
+        .admin-menu { position: fixed; top: 40px; left: 40px; z-index: 10002; display: none; background: rgba(0,0,0,0.98); padding: 35px; border-radius: 35px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 50px rgba(0,0,0,1); }
+        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; flex-direction: column; gap: 20px; }
+
+        #tv-title { white-space: nowrap; display: block; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="lock-screen">
+        <div class="text-center">
+            <h2 class="text-[#d4af37] text-[5rem] font-[900] italic mb-8 tracking-tighter">PORTINHA 🔐</h2>
+            <input type="password" id="passInput" placeholder="Pass" class="bg-white/5 border border-[#d4af37]/20 rounded-3xl px-8 py-5 text-center text-4xl text-white outline-none w-[25vw]">
+            <button onclick="checkPass()" class="mt-8 block mx-auto bg-white text-black px-12 py-4 rounded-full text-2xl font-black">ENTRAR</button>
+        </div>
+    </div>
+
+    <div class="admin-trigger"></div>
+    <div class="admin-menu">
+        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-10 py-4 rounded-full font-black text-xl hover:scale-105 transition-all">CONECTAR SPOTIFY</button>
+        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-10 py-4 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
+        <hr class="opacity-10 my-2">
+        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-sm font-bold uppercase">Reset Total / Logout</button>
+    </div>
+
+    <div id="bg-blur"></div>
+    <div class="vignette"></div>
+
+    <div id="main-content">
+        
+        <div class="flex-1 flex flex-col justify-end pb-[2vh]">
+            <div class="flex items-end gap-6 mb-8">
+                <img id="tv-cover" src="" class="w-[18vw] h-[18vw] rounded-[2vw] shadow-2xl object-cover">
+                
+                <div id="title-container" class="flex-1 min-w-0 flex flex-col justify-end pb-2 overflow-hidden">
+                    <h1 id="tv-title" class="font-[900] tracking-tighter leading-tight text-white drop-shadow-lg">...</h1>
+                    <p id="tv-artist" class="text-[2.5vw] text-white/70 font-medium truncate drop-shadow-md">A carregar...</p>
+                    
+                    <div id="tv-suggester-box" class="hidden mt-4 inline-flex items-center gap-4 px-6 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 w-fit">
+                        <span class="text-[1vw] font-bold uppercase tracking-widest text-white/80">PEDIDO: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full">
+                <div class="flex justify-between items-end mb-3 px-1 text-xl font-bold font-mono opacity-50 drop-shadow-md">
+                    <span id="tv-current-time">0:00</span>
+                    <span id="tv-total-time">0:00</span>
+                </div>
+                <div class="bg-white/20 h-[0.6vh] rounded-full overflow-hidden">
+                    <div id="tv-progress" class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-[32vw] flex flex-col flex-shrink-0 relative z-10 h-full gap-[2vh]">
+            
+            <div class="flex-1 glass-panel rounded-[2vw] p-[2vw] flex flex-col overflow-hidden">
+                <div class="flex items-center gap-3 mb-6 opacity-60">
+                    <i data-lucide="align-left" class="w-5 h-5"></i>
+                    <h2 class="text-[1.2vw] font-bold uppercase tracking-widest">A Seguir</h2>
+                </div>
+                <div id="tv-queue-list" class="flex flex-col gap-5 overflow-y-auto pr-2"></div>
+            </div>
+
+            <div class="glass-panel p-[1.5vw] rounded-[2vw] flex items-center gap-[1.5vw] border border-[#d4af37]/30 bg-gradient-to-r from-[rgba(212,175,55,0.15)] to-[rgba(0,0,0,0.5)] shadow-[0_0_30px_rgba(212,175,55,0.1)]">
+                <div id="qrcode-container"></div>
+                <div class="min-w-0 flex-1">
+                    <p class="text-[#d4af37] text-[1vw] font-bold uppercase tracking-widest leading-none mb-2">Escaneia para pedir</p>
+                    <p class="text-white text-[2.8vw] font-black italic tracking-tight leading-none">MÚSICA</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
+        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
+        
+        let spotifyAccessToken = localStorage.getItem('spotify_token');
+        let refreshToken = localStorage.getItem('refresh_token');
+        let expiresAt = localStorage.getItem('expires_at');
+        let autoMode = false;
+        let isProcessingAuto = false;
+        let durationMs = 0; let localProgressMs = 0;
+        const redirectUri = window.location.href.split('?')[0].split('#')[0];
+
+        // Ajuste de fonte adaptado ao novo espaço
+        function adjustFontSize() {
+            const title = document.getElementById('tv-title');
+            const container = document.getElementById('title-container');
+            let fontSize = 5.5;
+            title.style.fontSize = fontSize + 'vw';
+            while (title.scrollWidth > container.clientWidth && fontSize > 2.0) {
+                fontSize -= 0.1;
+                title.style.fontSize = fontSize + 'vw';
+            }
+        }
+
+        function checkPass() { if(document.getElementById('passInput').value === "1234") { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; generateQR(); initSystem(); } }
+        
+        function generateQR() { 
+            const indexUrl = window.location.href.replace('tv.html', 'index.html'); 
+            document.getElementById("qrcode-container").innerHTML = ""; 
+            new QRCode(document.getElementById("qrcode-container"), { text: indexUrl, width: 110, height: 110 }); 
+        }
+
+        async function loginSpotify() {
+            const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
+            localStorage.setItem('code_verifier', verifier);
+            const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            const scopes = 'user-modify-playback-state user-read-playback-state user-read-currently-playing';
+            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&code_challenge_method=S256&code_challenge=${challenge}`;
+        }
+
+        async function exchangeCode(code) {
+            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: localStorage.getItem('code_verifier') });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+            const data = await res.json();
+            if (data.access_token) {
+                localStorage.setItem('spotify_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
+                window.location.href = redirectUri;
+            }
+        }
+
+        async function refreshTokens() {
+            if (!refreshToken) return;
+            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'refresh_token', refresh_token: refreshToken });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+            const data = await res.json();
+            if (data.access_token) {
+                spotifyAccessToken = data.access_token;
+                localStorage.setItem('spotify_token', data.access_token);
+                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
+            }
+        }
+
+        async function disableRepeat() {
+            if (!spotifyAccessToken) return;
+            await fetch("https://api.spotify.com/v1/me/player/repeat?state=off", { method: 'PUT', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+        }
+
+        async function monitor() {
+            if (!spotifyAccessToken) return;
+            if (expiresAt && (Math.floor(Date.now() / 1000) > (expiresAt - 300))) await refreshTokens();
+
+            try {
+                const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                if (res.status === 200) {
+                    const data = await res.json(); if (!data.item) return;
+                    
+                    if (localStorage.getItem('current_uri') !== data.item.uri) {
+                        isProcessingAuto = false;
+                        localStorage.setItem('current_uri', data.item.uri);
+                        disableRepeat();
+                    }
+
+                    localProgressMs = data.progress_ms; durationMs = data.item.duration_ms;
+                    const isSuggester = (localStorage.getItem('last_uri') === data.item.uri);
+                    const currentUser = isSuggester ? localStorage.getItem('last_user') : "Spotify";
+
+                    await supabaseClient.from('playback_status').upsert({ id: 1, title: data.item.name, artist: data.item.artists[0].name, cover_url: data.item.album.images[0].url, progress_ms: data.progress_ms, duration_ms: data.item.duration_ms, user_name: currentUser });
+
+                    document.getElementById('tv-title').innerText = data.item.name;
+                    adjustFontSize();
+                    document.getElementById('tv-artist').innerText = data.item.artists[0].name;
+                    document.getElementById('tv-cover').src = data.item.album.images[0].url;
+                    document.getElementById('bg-blur').style.backgroundImage = `url('${data.item.album.images[0].url}')`;
+                    document.getElementById('tv-total-time').innerText = format(durationMs);
+
+                    if (isSuggester) { document.getElementById('tv-suggester-box').classList.remove('hidden'); document.getElementById('tv-suggester').innerText = currentUser; } 
+                    else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
+
+                    if (autoMode && durationMs > 0 && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
+                        isProcessingAuto = true;
+                        prepareNextFromQueue();
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function prepareNextFromQueue() {
+            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
+            if (data?.length > 0) {
+                const s = data[0];
+                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { 
+                    method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken }
+                });
+                localStorage.setItem('last_uri', s.spotify_uri);
+                localStorage.setItem('last_user', s.user_name);
+                await supabaseClient.from('queue').update({ status: 'played' }).eq('id', s.id);
+            }
+        }
+
+        function toggleAutoMode() { autoMode = !autoMode; const btn = document.getElementById('auto-btn'); btn.innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; btn.style.color = autoMode ? '#1DB954' : 'white'; }
+        function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
+        
+        async function fetchQueue() {
+            const { data: suggestions } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(6);
+            const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
+            if (suggestions?.length > 0) {
+                suggestions.forEach(s => {
+                    // Item mais fino e minimalista para bater com a referência
+                    const div = document.createElement('div'); div.className = "flex items-center gap-4 animate-in fade-in duration-500";
+                    div.innerHTML = `<img src="${s.cover_url}" class="w-[3.5vw] h-[3.5vw] rounded-md object-cover shadow-lg border border-white/10"> <div class="flex-1 min-w-0"><p class="text-[1.2vw] font-bold truncate text-white leading-tight">${s.title}</p><p class="text-[0.8vw] text-[#d4af37] uppercase font-black truncate mt-1">Pedido: ${s.user_name}</p></div>`;
+                    container.appendChild(div);
+                });
+            } else if (spotifyAccessToken) {
+                try {
+                    const res = await fetch("https://api.spotify.com/v1/me/player/queue", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                    if (res.status === 200) {
+                        const qData = await res.json();
+                        qData.queue.slice(0, 6).forEach(t => {
+                            const div = document.createElement('div'); div.className = "flex items-center gap-4 opacity-50";
+                            div.innerHTML = `<img src="${t.album.images[0].url}" class="w-[3.5vw] h-[3.5vw] rounded-md object-cover grayscale-[30%]"> <div class="flex-1 min-w-0"><p class="text-[1.2vw] font-bold truncate text-white leading-tight">${t.name}</p><p class="text-[0.8vw] text-white/50 uppercase font-black truncate mt-1">Playlist Portinha</p></div>`;
+                            container.appendChild(div);
+                        });
+                    }
+                } catch(e) {}
+            }
+        }
+
+        function initSystem() {
+            setInterval(monitor, 2000);
+            setInterval(() => { if(durationMs > 0) { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); } }, 1000);
+            supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+            setInterval(fetchQueue, 10000);
+            fetchQueue();
+        }
+
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) { exchangeCode(code); }
+        lucide.createIcons();
+    </script>
+</body>
+</html>
