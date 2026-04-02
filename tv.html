@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha TV - Wide Text System</title>
+    <title>Portinha TV - Auto-Fit System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -20,41 +20,44 @@
         }
 
         .vignette { position: fixed; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.9) 100%); z-index: 2; }
-        
         #main-content { position: relative; z-index: 10; display: flex; flex-direction: column; height: 100vh; width: 100vw; padding: 5vh 4vw; box-sizing: border-box; opacity: 0; transition: opacity 1.2s ease; }
-        
         .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(40px); border: 1px solid rgba(255, 255, 255, 0.07); }
         .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; box-shadow: 0 0 30px rgba(255, 255, 255, 0.5); }
-        
         #qrcode-container { background: white; padding: 8px; border-radius: 12px; display: inline-block; }
-        #qrcode-container img { width: 90px; height: 90px; }
+        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
 
-        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        /* Ajuste para o Texto não quebrar linha nem cortar com dots enquanto calcula */
+        #tv-title { 
+            white-space: nowrap; 
+            display: block;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
 
     <div id="lock-screen">
-        <h2 class="text-[#d4af37] text-[5rem] font-[900] italic mb-8 tracking-tighter">PORTINHA 🔐</h2>
-        <input type="password" id="passInput" placeholder="Pass" class="bg-white/5 border border-[#d4af37]/20 rounded-3xl px-8 py-5 text-center text-4xl text-white outline-none w-[25vw]">
-        <button onclick="checkPass()" class="mt-8 bg-white text-black px-12 py-4 rounded-full text-2xl font-black">ENTRAR</button>
+        <div class="text-center">
+            <h2 class="text-[#d4af37] text-[5rem] font-[900] italic mb-8 tracking-tighter">PORTINHA 🔐</h2>
+            <input type="password" id="passInput" placeholder="Pass" class="bg-white/5 border border-[#d4af37]/20 rounded-3xl px-8 py-5 text-center text-4xl text-white outline-none w-[25vw]">
+            <button onclick="checkPass()" class="mt-8 block mx-auto bg-white text-black px-12 py-4 rounded-full text-2xl font-black">ENTRAR</button>
+        </div>
     </div>
 
     <div id="bg-blur"></div>
     <div class="vignette"></div>
 
     <div id="main-content">
-        <div class="flex-1 flex items-center gap-[4vw] min-w-0">
-            
+        <div class="flex-1 flex items-center gap-[5vw] min-w-0">
             <div class="w-[30vw] flex-shrink-0">
                 <img id="tv-cover" src="" class="w-full aspect-square rounded-[4vh] shadow-2xl border border-white/5 object-cover">
             </div>
 
-            <div class="flex-1 min-w-0 flex flex-col justify-center">
-                <h1 id="tv-title" class="text-[5.5vw] font-[900] tracking-tighter leading-[1.1] mb-6 truncate italic">...</h1>
+            <div id="title-container" class="flex-1 min-w-0 flex flex-col justify-center overflow-hidden">
+                <h1 id="tv-title" class="font-[900] tracking-tighter leading-tight italic">...</h1>
                 <p id="tv-artist" class="text-[2.5vw] text-white/40 font-medium mb-10 truncate italic">Sincronizando...</p>
                 
-                <div id="tv-suggester-box" class="hidden inline-flex items-center gap-6 px-8 py-4 glass-panel rounded-[20px] border-l-[0.8vw] border-l-[#d4af37]">
+                <div id="tv-suggester-box" class="hidden inline-flex items-center gap-6 px-8 py-4 glass-panel rounded-[20px] border-l-[0.8vw] border-l-[#d4af37] w-fit">
                     <span class="text-[1.3vw] font-black uppercase tracking-widest text-white/80">PEDIDO: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
                 </div>
             </div>
@@ -90,7 +93,6 @@
     </div>
 
     <script>
-        // O script permanece o mesmo (Supabase/Spotify)
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -99,8 +101,30 @@
         let durationMs = 0; let localProgressMs = 0;
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
 
+        // --- FUNÇÃO DE AUTO-AJUSTE DE FONTE ---
+        function adjustFontSize() {
+            const title = document.getElementById('tv-title');
+            const container = document.getElementById('title-container');
+            let fontSize = 6.5; // Começamos com 6.5vw (bem grande)
+            
+            title.style.fontSize = fontSize + 'vw';
+
+            // Enquanto o texto for mais largo que o contentor, diminui a fonte
+            // O limite mínimo é 2.5vw para não ficar minúsculo
+            while (title.scrollWidth > container.clientWidth && fontSize > 2.5) {
+                fontSize -= 0.2;
+                title.style.fontSize = fontSize + 'vw';
+            }
+        }
+
         function checkPass() { if(document.getElementById('passInput').value === "1234") { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; generateQR(); initSystem(); } }
-        function generateQR() { const indexUrl = window.location.href.replace('tv.html', 'index.html'); new QRCode(document.getElementById("qrcode-container"), { text: indexUrl, width: 90, height: 90 }); }
+        
+        function generateQR() { 
+            const indexUrl = window.location.href.replace('tv.html', 'index.html');
+            const qrc = document.getElementById("qrcode-container");
+            qrc.innerHTML = "";
+            new QRCode(qrc, { text: indexUrl, width: 90, height: 90 }); 
+        }
 
         async function monitor() {
             if (!spotifyAccessToken) return;
@@ -109,21 +133,31 @@
                 if (res.status === 200) {
                     const data = await res.json(); if (!data.item) return;
                     localProgressMs = data.progress_ms; durationMs = data.item.duration_ms;
-                    const user = (localStorage.getItem('last_uri') === data.item.uri) ? localStorage.getItem('last_user') : "Spotify";
+                    
+                    const isSuggester = (localStorage.getItem('last_uri') === data.item.uri);
+                    const user = isSuggester ? localStorage.getItem('last_user') : "Spotify";
                     
                     await supabaseClient.from('playback_status').upsert({ id: 1, title: data.item.name, artist: data.item.artists[0].name, cover_url: data.item.album.images[0].url, progress_ms: data.progress_ms, duration_ms: data.item.duration_ms, user_name: user });
                     
-                    document.getElementById('tv-title').innerText = data.item.name;
+                    const titleEl = document.getElementById('tv-title');
+                    titleEl.innerText = data.item.name;
+                    
+                    // Dispara o ajuste de tamanho assim que o texto muda
+                    adjustFontSize();
+
                     document.getElementById('tv-artist').innerText = data.item.artists[0].name;
                     document.getElementById('tv-cover').src = data.item.album.images[0].url;
                     document.getElementById('bg-blur').style.backgroundImage = `url('${data.item.album.images[0].url}')`;
                     document.getElementById('tv-total-time').innerText = format(durationMs);
-                    if (user !== "Spotify") { document.getElementById('tv-suggester-box').classList.remove('hidden'); document.getElementById('tv-suggester').innerText = user; } else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
+                    
+                    if (isSuggester) { document.getElementById('tv-suggester-box').classList.remove('hidden'); document.getElementById('tv-suggester').innerText = user; } 
+                    else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
                 }
             } catch (e) { console.log(e); }
         }
 
         function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
+        
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
             const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
@@ -133,7 +167,14 @@
                 container.appendChild(div);
             });
         }
-        function initSystem() { setInterval(monitor, 2000); setInterval(() => { if(durationMs > 0) { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); } }, 1000); supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe(); fetchQueue(); }
+
+        function initSystem() { 
+            setInterval(monitor, 2000); 
+            setInterval(() => { if(durationMs > 0) { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); } }, 1000); 
+            supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe(); 
+            fetchQueue(); 
+        }
+
         lucide.createIcons();
     </script>
 </body>
