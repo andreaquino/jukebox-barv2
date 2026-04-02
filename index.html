@@ -7,39 +7,73 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { portinhaBlue: '#1a365d', portinhaGold: '#d4af37' }
-                }
-            }
-        }
-    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
         body { 
-            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
+            font-family: 'Inter', sans-serif; 
+            color: #f3e5ab; 
+            min-height: 100vh; 
+            margin: 0;
+            /* FUNDO TAVERNA PORTINHA */
             background: linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url('bar_background_portinha.jpg'); 
-            background-size: cover; background-position: center; background-attachment: fixed; background-repeat: no-repeat; background-color: #000;
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; 
+            background-repeat: no-repeat; 
+            background-color: #000;
         }
-        .wood-panel { background: rgba(15, 7, 5, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-        .btn-gold { background: #d4af37; color: #000; font-weight: 900; }
-        .search-input { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(212, 175, 55, 0.3); color: white; }
-        .logo-gold-filter { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; }
+
+        /* Painéis estilo Vidro/Madeira Escura */
+        .wood-panel { 
+            background: rgba(15, 7, 5, 0.85); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(212, 175, 55, 0.15); 
+            border-radius: 24px; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); 
+        }
+
+        .btn-gold { 
+            background: #d4af37; 
+            color: #000; 
+            font-weight: 900; 
+            transition: all 0.2s ease;
+        }
+        .btn-gold:active { transform: scale(0.95); }
+
+        .search-input { 
+            background: rgba(0, 0, 0, 0.6); 
+            border: 1px solid rgba(212, 175, 55, 0.3); 
+            color: white; 
+            transition: all 0.3s ease;
+        }
+        .search-input:focus { border-color: #d4af37; box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+
+        /* Filtro para o Logo ficar Dourado Portinha */
+        .logo-gold-filter { 
+            filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); 
+            width: 120px; 
+            opacity: 0.8; 
+        }
+
+        .progress-bar { 
+            background: #d4af37; 
+            height: 100%; 
+            transition: width 1s linear; 
+        }
     </style>
 </head>
 <body class="p-4 flex flex-col items-center">
 
-    <header class="w-full max-w-lg mb-8 wood-panel p-5 border-l-4 border-portinhaGold">
+    <header class="w-full max-w-lg mb-8 wood-panel p-5 border-l-4 border-[#d4af37]">
         <div class="flex gap-4 items-center">
             <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover border border-white/5">
             <div class="overflow-hidden flex-1">
-                <p class="text-[10px] uppercase tracking-[0.2em] text-portinhaGold font-bold mb-1">No Ar na Portinha</p>
-                <p id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</p>
-                <p id="client-artist" class="text-portinhaGold/70 text-sm italic">Portinha</p>
+                <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
+                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
+                <p id="client-artist" class="text-white/50 text-sm italic">Carregando bar</p>
                 <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-                    <div id="client-progress" class="bg-portinhaGold h-full rounded-full transition-all duration-1000"></div>
+                    <div id="client-progress" class="progress-bar" style="width: 0%"></div>
                 </div>
             </div>
         </div>
@@ -48,36 +82,46 @@
     <main class="w-full max-w-lg flex-1">
         <section class="mb-8">
             <div class="relative flex items-center">
-                <i data-lucide="search" class="absolute left-5 text-portinhaGold/50 w-5 h-5"></i>
-                <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa rápida..." class="search-input w-full rounded-2xl pl-14 pr-6 py-5 outline-none text-lg">
+                <i data-lucide="search" class="absolute left-5 text-[#d4af37]/50 w-5 h-5"></i>
+                <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Escolhe uma música..." class="search-input w-full rounded-2xl pl-14 pr-6 py-5 outline-none text-lg">
             </div>
             <div id="search-results" class="mt-4 flex flex-col gap-3"></div>
         </section>
 
         <section>
             <div class="flex items-center gap-3 mb-6 px-2">
-                <i data-lucide="list-music" class="text-portinhaGold w-6 h-6"></i>
-                <h2 class="text-2xl font-black italic text-white tracking-tighter uppercase">Fila de Espera</h2>
+                <i data-lucide="list-music" class="text-[#d4af37] w-6 h-6"></i>
+                <h2 class="text-2xl font-black italic text-white tracking-tighter uppercase">Fila da Taverna</h2>
             </div>
             <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
         </section>
     </main>
 
     <footer class="mt-10 mb-12 text-center flex flex-col items-center">
-        <img src="logo.png" alt="Portinha Logo" class="logo-gold-filter mb-3">
-</footer>
+        <img src="logo_portinha.png" alt="Portinha Logo" class="logo-gold-filter mb-3" onerror="this.style.display='none'">
+        <h2 class="text-sm font-black italic tracking-[0.4em] text-white opacity-40 uppercase">Portinha</h2>
+    </footer>
 
     <script>
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
         
+        // ID ÚNICO DO UTILIZADOR
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
         let cachedSpotifyToken = null;
 
-        // --- BUSCA TOKEN SÓ UMA VEZ ---
+        // --- LISTA DE PALAVRÕES ---
+        const forbiddenWords = ["caralho", "foda", "puta", "merda", "cabrão", "paneleiro", "cona", "pila", "foder", "rabeta"];
+
+        function containsProfanity(text) {
+            const lowerText = text.toLowerCase();
+            return forbiddenWords.some(word => lowerText.includes(word));
+        }
+
+        // --- TOKEN SPOTIFY (CACHE) ---
         async function getSpotifyToken() {
             if (cachedSpotifyToken) return cachedSpotifyToken;
             const res = await fetch('https://accounts.spotify.com/api/token', { 
@@ -90,20 +134,25 @@
             return cachedSpotifyToken;
         }
 
-        async function initClient() {
+        // --- SINCRONIZAÇÃO COM A TV ---
+        async function initSync() {
             const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
             if (data) updateUI(data);
-            supabaseClient.channel('c_playback').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'playback_status' }, payload => updateUI(payload.new)).subscribe();
+
+            supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'playback_status' }, payload => {
+                updateUI(payload.new || payload.old);
+            }).subscribe();
         }
 
         function updateUI(data) {
+            if(!data) return;
             document.getElementById('client-title').innerText = data.title;
             document.getElementById('client-artist').innerText = data.artist;
             document.getElementById('client-cover').src = data.cover_url;
-            document.getElementById('client-progress').style.width = (data.progress_ms / data.duration_ms * 100) + '%';
+            document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
         }
 
-        // --- PESQUISA ULTRA RÁPIDA (300ms) ---
+        // --- PESQUISA TURBINADA (300ms) ---
         let timer;
         function debounceSearch() {
             const q = document.getElementById('searchInput').value;
@@ -112,9 +161,7 @@
             clearTimeout(timer);
             timer = setTimeout(async () => {
                 const token = await getSpotifyToken();
-                const res = await fetch(`https://api.spotify.com/v1/search?q=$${encodeURIComponent(q)}&type=track&limit=5`, { 
-                    headers: { 'Authorization': 'Bearer ' + token } 
-                });
+                const res = await fetch(`https://api.spotify.com/v1/search?q=$${encodeURIComponent(q)}&type=track&limit=5`, { headers: { 'Authorization': 'Bearer ' + token } });
                 const data = await res.json();
                 
                 const results = document.getElementById('search-results');
@@ -123,29 +170,47 @@
                     const div = document.createElement('div');
                     div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
                     div.onclick = () => addToQueue(song);
-                    div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg shadow-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-portinhaGold/70 truncate">${song.artists[0].name}</p></div> <i data-lucide="plus" class="text-portinhaGold"></i>`;
+                    div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg shadow-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div> <i data-lucide="plus" class="text-[#d4af37]"></i>`;
                     results.appendChild(div);
                 });
                 lucide.createIcons();
-            }, 300); // 300ms é o ideal para parecer instantâneo
+            }, 300);
         }
 
+        // --- ADICIONAR À FILA (REGRA 10 MIN + FILTRO) ---
         async function addToQueue(song) {
-            const { data: count } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).eq('status', 'pending');
-            if (count && count.length >= 3) return alert("Máximo 3 músicas!");
-            const name = prompt("Qual o teu nome?");
-            if(!name) return;
-            await supabaseClient.from('queue').insert([{ title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, spotify_uri: song.uri, user_name: name, user_id: MY_ID, status: 'pending', votes: 0 }]);
-            document.getElementById('searchInput').value = ""; document.getElementById('search-results').innerHTML = "";
+            // Check tempo
+            const { data: lastSongs } = await supabaseClient.from('queue').select('created_at').eq('user_id', MY_ID).order('created_at', { ascending: false }).limit(1);
+
+            if (lastSongs && lastSongs.length > 0) {
+                const diff = (new Date() - new Date(lastSongs[0].created_at)) / 1000 / 60;
+                if (diff < 10) return alert(`Espera aí! Na Portinha é uma música a cada 10 min. Faltam ${Math.ceil(10 - diff)} min. 🍷⏳`);
+            }
+
+            let name = prompt("Qual o teu nome?");
+            if (!name) return;
+            if (containsProfanity(name)) return alert("Epa! Escolhe um nome mais simpático para a Portinha! 🍷");
+
+            name = name.trim().substring(0, 15);
+
+            await supabaseClient.from('queue').insert([{ 
+                title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
+                spotify_uri: song.uri, user_name: name, user_id: MY_ID, status: 'pending', votes: 0 
+            }]);
+
+            document.getElementById('searchInput').value = ""; 
+            document.getElementById('search-results').innerHTML = "";
+            alert("Música enviada! Agora aproveita o teu vinho. 🍷✨");
         }
 
+        // --- FILA DE ESPERA ---
         async function fetchQueue() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
+            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(10);
             const container = document.getElementById('queue-list'); container.innerHTML = "";
             (data || []).forEach(song => {
                 const div = document.createElement('div');
-                div.className = "flex items-center gap-4 wood-panel p-4 border-l-2 border-portinhaGold/30";
-                div.innerHTML = `<img src="${song.cover_url}" class="w-14 h-14 rounded-xl shadow-md"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.title}</p><p class="text-[10px] text-portinhaGold uppercase font-black tracking-widest mt-1">Pedido de: ${song.user_name}</p></div> <button onclick="upvote('${song.id}')" class="btn-gold px-4 py-2 rounded-xl text-xs flex items-center gap-2">❤️ ${song.votes}</button>`;
+                div.className = "flex items-center gap-4 wood-panel p-4 border-l-2 border-[#d4af37]/30";
+                div.innerHTML = `<img src="${song.cover_url}" class="w-14 h-14 rounded-xl shadow-md"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.title}</p><p class="text-[10px] text-[#d4af37] uppercase font-black tracking-widest mt-1">Pedido de: ${song.user_name}</p></div> <button onclick="upvote('${song.id}')" class="btn-gold px-4 py-2 rounded-xl text-xs flex items-center gap-2">❤️ ${song.votes}</button>`;
                 container.appendChild(div);
             });
             lucide.createIcons();
@@ -153,13 +218,15 @@
 
         async function upvote(id) {
             const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
-            if (v && v.length > 0) return alert("Já votaste!");
+            if (v && v.length > 0) return alert("Já votaste nesta!");
             await supabaseClient.from('votes').insert([{ song_id: id, user_id: MY_ID }]);
             const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
             await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
         }
 
-        initClient(); fetchQueue();
+        // --- INIT ---
+        initSync(); 
+        fetchQueue();
         supabaseClient.channel('q_client').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
