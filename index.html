@@ -16,7 +16,6 @@
         }
         .wood-panel { background: rgba(15, 7, 5, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.15); border-radius: 24px; }
         .logo-gold-filter { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; cursor: pointer; }
-        .progress-bar { background: #d4af37; height: 100%; transition: width 1s linear; }
         .btn-gold { background: #d4af37; color: #000; font-weight: 900; }
     </style>
 </head>
@@ -24,13 +23,13 @@
 
     <header class="w-full max-w-lg mb-8 wood-panel p-5 border-l-4 border-[#d4af37]">
         <div class="flex gap-4 items-center">
-            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover border border-white/5">
+            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl border border-white/5 object-cover">
             <div class="overflow-hidden flex-1">
                 <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
-                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
+                <h2 id="client-title" class="font-black text-xl truncate text-white">Sincronizando...</h2>
                 <p id="client-artist" class="text-white/50 text-sm italic">...</p>
                 <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-                    <div id="client-progress" class="progress-bar" style="width: 0%"></div>
+                    <div id="client-progress" class="bg-[#d4af37] h-full transition-all duration-1000" style="width: 0%"></div>
                 </div>
             </div>
         </div>
@@ -45,7 +44,7 @@
         
         <div class="flex justify-between items-center mb-6 px-2">
             <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Fila da Taverna</h2>
-            <span id="admin-indicator" class="hidden text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">MODO VETO</span>
+            <span id="admin-indicator" class="hidden text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold">MODO VETO</span>
         </div>
         <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
     </main>
@@ -60,6 +59,8 @@
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        
+        // --- ESTE ID É A CHAVE (É único por telemóvel) ---
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
@@ -68,16 +69,16 @@
         let cachedToken = null;
         const forbiddenWords = ["caralho", "foda", "puta", "merda", "cabrão", "paneleiro", "cona", "pila", "foder", "rabeta"];
 
-        // --- MODO VETO ---
+        // --- ADMIN / VETO ---
         function startAdminTimer() { adminTimer = setTimeout(() => { const p = prompt("Admin Pass:"); if(p === "1234") { adminMode = !adminMode; document.getElementById('admin-indicator').classList.toggle('hidden'); fetchQueue(); } }, 3000); }
         function clearAdminTimer() { clearTimeout(adminTimer); }
-        async function removeSong(id) { if(confirm("Remover música?")) { await supabaseClient.from('queue').update({ status: 'played' }).eq('id', id); fetchQueue(); } }
+        async function removeSong(id) { if(confirm("Remover?")) { await supabaseClient.from('queue').update({ status: 'played' }).eq('id', id); } }
 
-        // --- SINCRO COM TV ---
+        // --- SINCRO ---
         async function initSync() {
             const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
             if (data) updateUI(data);
-            supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'playback_status' }, p => updateUI(p.new)).subscribe();
+            supabaseClient.channel('playback').on('postgres_changes', { event: '*', schema: 'public', table: 'playback_status' }, p => updateUI(p.new)).subscribe();
         }
         function updateUI(data) {
             if(!data) return;
@@ -90,11 +91,7 @@
         // --- PESQUISA ---
         async function getSpotifyToken() {
             if (cachedToken) return cachedToken;
-            const res = await fetch('https://accounts.spotify.com/api/token', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
-                body: 'grant_type=client_credentials' 
-            });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, body: 'grant_type=client_credentials' });
             const data = await res.json();
             return (cachedToken = data.access_token);
         }
@@ -106,7 +103,7 @@
             clearTimeout(sTimer);
             sTimer = setTimeout(async () => {
                 const token = await getSpotifyToken();
-                const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=5`, { headers: { 'Authorization': 'Bearer ' + token } });
+                const res = await fetch(`https://api.spotify.com/v1/search?q=$${encodeURIComponent(q)}&type=track&limit=5`, { headers: { 'Authorization': 'Bearer ' + token } });
                 const data = await res.json();
                 const results = document.getElementById('search-results'); results.innerHTML = "";
                 data.tracks.items.forEach(song => {
@@ -120,18 +117,31 @@
             }, 300);
         }
 
-        // --- ADICIONAR FILA ---
+        // --- ADICIONAR FILA (BLOQUEADO PELO MY_ID) ---
         async function addToQueue(song) {
+            // 1. Limite de 3 pendentes por TELEMÓVEL
+            const { data: pending } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).eq('status', 'pending');
+            if (pending && pending.length >= 3) return alert("Já tens 3 músicas na fila! Deixa os outros também ouvirem um bocadinho. 🍷");
+
+            // 2. Limite de 10 min por TELEMÓVEL (Não importa o nome que escrevam)
             const { data: last } = await supabaseClient.from('queue').select('created_at').eq('user_id', MY_ID).order('created_at', { ascending: false }).limit(1);
-            if (last?.length > 0 && (new Date() - new Date(last[0].created_at)) / 60000 < 10) return alert("Uma música a cada 10 min! 🍷⏳");
-            
+            if (last && last.length > 0) {
+                const diff = (new Date().getTime() - new Date(last[0].created_at).getTime()) / 60000;
+                if (diff < 10) return alert(`Apenas uma música a cada 10 minutos por pessoa. Faltam ${Math.ceil(10 - diff)} min. 🍷⏳`);
+            }
+
             let name = prompt("Qual o teu nome?");
             if(!name) return;
-            if (forbiddenWords.some(w => name.toLowerCase().includes(w))) return alert("Escolhe um nome mais simpático! 🍷");
+            if (forbiddenWords.some(w => name.toLowerCase().includes(w))) return alert("Nome impróprio! Escolhe outro. 🍷");
 
-            await supabaseClient.from('queue').insert([{ title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, spotify_uri: song.uri, user_name: name.trim().substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 }]);
-            document.getElementById('searchInput').value = ""; document.getElementById('search-results').innerHTML = "";
-            alert("Música na fila! 🍷");
+            await supabaseClient.from('queue').insert([{ 
+                title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
+                spotify_uri: song.uri, user_name: name.trim().substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
+            }]);
+
+            document.getElementById('searchInput').value = ""; 
+            document.getElementById('search-results').innerHTML = "";
+            alert("Música na fila da Portinha! 🍷✨");
         }
 
         // --- FILA ---
@@ -150,14 +160,14 @@
 
         async function upvote(id) {
             const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
-            if (v?.length > 0) return alert("Já votaste!");
+            if (v?.length > 0) return alert("Já votaste nesta!");
             await supabaseClient.from('votes').insert([{ song_id: id, user_id: MY_ID }]);
             const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
             await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
         }
 
         initSync(); fetchQueue();
-        supabaseClient.channel('q_c').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+        supabaseClient.channel('queue').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
 </body>
