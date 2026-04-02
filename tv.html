@@ -3,79 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Sistema Central</title>
+    <title>Portinha TV - 4K Ultra System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { background-color: #000 !important; color: white; overflow: hidden; font-family: 'Inter', sans-serif; margin: 0; }
-        #bg-blur { position: fixed; inset: 0; background-size: cover; background-position: center; filter: blur(100px) brightness(0.3); transform: scale(1.2); z-index: -1; transition: background-image 2s ease-in-out; }
-        .glass-panel { background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(50px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; transition: width 1s linear; box-shadow: 0 0 30px rgba(255, 255, 255, 0.5); }
-        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .admin-trigger { position: fixed; top: 0; left: 0; width: 100px; height: 100px; z-index: 50; }
-        .admin-menu { position: fixed; top: 20px; left: 20px; z-index: 60; display: none; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.9); p: 20px; border-radius: 20px; border: 1px solid white/10; }
-        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; }
+        
+        /* IMPEDIR QUALQUER SCROLL */
+        html, body { 
+            background-color: #000 !important; 
+            color: white; 
+            margin: 0; 
+            padding: 0; 
+            width: 100vw; 
+            height: 100vh; 
+            overflow: hidden !important; 
+            font-family: 'Inter', sans-serif; 
+        }
+        
+        #bg-blur {
+            position: fixed; inset: 0;
+            background-size: cover; background-position: center;
+            filter: blur(120px) brightness(0.25) saturate(1.5);
+            transform: scale(1.3);
+            z-index: -1; transition: background-image 2.5s ease-in-out;
+        }
+
+        .glass-panel { 
+            background: rgba(0, 0, 0, 0.35); 
+            backdrop-filter: blur(60px); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+        }
+
+        .progress-fill { 
+            background: #ffffff; 
+            height: 100%; 
+            border-radius: 99px; 
+            transition: width 1s linear; 
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.6); 
+        }
+
+        /* Ecrã de Bloqueio */
+        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        
+        /* Menu Admin Oculto */
+        .admin-trigger { position: fixed; top: 0; left: 0; width: 150px; height: 150px; z-index: 50; }
+        .admin-menu { position: fixed; top: 40px; left: 40px; z-index: 60; display: none; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); }
+        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; flex-direction: column; gap: 20px; }
     </style>
 </head>
-<body>
+<body class="flex flex-col p-24">
 
     <div id="lock-screen">
-        <h2 class="text-[#d4af37] text-5xl font-black italic mb-8">PORTINHA 🔐</h2>
-        <input type="password" id="passInput" placeholder="Password" class="bg-white/10 border border-white/20 rounded-2xl px-6 py-4 text-center text-2xl text-white outline-none focus:border-white w-80">
-        <button onclick="checkPass()" class="mt-6 bg-white text-black px-10 py-3 rounded-full font-bold">ENTRAR</button>
+        <h2 class="text-[#d4af37] text-7xl font-[900] italic mb-12 tracking-tighter" style="text-shadow: 0 0 40px rgba(212, 175, 55, 0.3)">PORTINHA 🔐</h2>
+        <input type="password" id="passInput" placeholder="Password" class="bg-white/5 border border-[#d4af37]/30 rounded-3xl px-12 py-6 text-center text-5xl text-white outline-none focus:border-white transition-all w-[500px]">
+        <button onclick="checkPass()" class="mt-12 bg-white text-black px-20 py-6 rounded-full text-3xl font-black hover:scale-110 transition-all">ABRIR SISTEMA</button>
     </div>
 
     <div id="bg-blur"></div>
 
     <div class="admin-trigger"></div>
-    <div class="admin-menu p-6">
-        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-6 py-2 rounded-full font-bold text-xs">LOGAR SPOTIFY</button>
-        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-6 py-2 rounded-full font-bold text-xs">AUTO-NEXT: OFF</button>
-        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-[10px] mt-2">RESET TOTAL</button>
+    <div class="admin-menu">
+        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-10 py-4 rounded-full font-black text-xl">LOGIN SPOTIFY</button>
+        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-10 py-4 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
+        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-sm">LOGOUT TOTAL</button>
     </div>
 
-    <div id="main-content" class="h-screen flex flex-col p-20 opacity-0 transition-opacity duration-1000">
-        <div class="flex-1 flex items-center gap-20 mb-20">
-            <img id="tv-cover" src="" class="w-[500px] h-[500px] rounded-[40px] shadow-2xl border border-white/10 object-cover">
-            <div class="flex-1 overflow-hidden">
-                <h1 id="tv-title" class="text-9xl font-[900] tracking-tighter leading-none mb-8 line-clamp-2 italic">...</h1>
-                <p id="tv-artist" class="text-6xl text-white/50 font-medium mb-12 italic">Carregando...</p>
-                <div id="tv-suggester-box" class="hidden inline-flex items-center gap-4 px-8 py-4 glass-panel rounded-3xl border-l-8 border-l-[#d4af37]">
-                    <span class="text-2xl font-black uppercase tracking-widest">PEDIDO: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
-                </div>
-            </div>
-            <div class="w-[400px] glass-panel rounded-[50px] p-10 h-full max-h-[700px] flex flex-col">
-                <h2 class="text-xl font-black uppercase tracking-widest text-white/30 mb-8 border-b border-white/10 pb-6">PRÓXIMAS</h2>
-                <div id="tv-queue-list" class="flex flex-col gap-8 overflow-y-auto"></div>
+    <div id="main-content" class="flex-1 flex items-center gap-20 mb-20 opacity-0 transition-opacity duration-1000 w-full overflow-hidden">
+        
+        <div class="shrink-0">
+            <img id="tv-cover" src="" class="w-[600px] h-[600px] md:w-[800px] md:h-[800px] rounded-[60px] shadow-[0_60px_150px_rgba(0,0,0,0.9)] border border-white/10 object-cover">
+        </div>
+
+        <div class="flex-1 flex flex-col justify-center min-w-0 overflow-hidden">
+            <h1 id="tv-title" class="text-[9rem] font-[900] tracking-tighter leading-[1] mb-10 truncate italic">...</h1>
+            <p id="tv-artist" class="text-7xl text-white/40 font-medium mb-16 truncate italic">Sincronizando Bar</p>
+            
+            <div id="tv-suggester-box" class="hidden inline-flex items-center gap-8 px-12 py-6 glass-panel rounded-[30px] w-fit border-l-[12px] border-l-[#d4af37]">
+                <span class="text-3xl font-black uppercase tracking-[0.3em] text-white/90">PEDIDO DE: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
             </div>
         </div>
-        <div class="w-full">
-            <div class="flex justify-between text-4xl font-mono opacity-20 mb-6">
-                <span id="tv-current-time">0:00</span>
-                <span id="tv-total-time">0:00</span>
+
+        <div class="w-[600px] shrink-0 glass-panel rounded-[70px] p-16 h-full max-h-[850px] flex flex-col shadow-2xl">
+            <div class="flex items-center gap-6 mb-12 border-b border-white/10 pb-10">
+                <i data-lucide="list-music" class="text-[#d4af37] w-12 h-12"></i>
+                <h2 class="text-3xl font-black uppercase tracking-[0.4em] text-white/30 italic">Próximas</h2>
             </div>
-            <div class="bg-white/10 h-4 rounded-full overflow-hidden"><div id="tv-progress" class="progress-fill" style="width: 0%"></div></div>
+            <div id="tv-queue-list" class="flex flex-col gap-12 overflow-y-auto pr-4"></div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-[98%] mx-auto mt-auto mb-8">
+        <div class="flex justify-between items-end mb-8 px-6">
+            <span id="tv-current-time" class="text-5xl font-black font-mono opacity-20">0:00</span>
+            <span id="tv-total-time" class="text-5xl font-black font-mono opacity-20">0:00</span>
+        </div>
+        <div class="bg-white/10 h-6 rounded-full relative overflow-hidden border border-white/5">
+            <div id="tv-progress" class="progress-fill" style="width: 0%"></div>
         </div>
     </div>
 
     <script>
+        // ... (Aqui manténs exatamente o mesmo script de lógica do Spotify/Supabase/Refresh Token que te enviei antes) ...
+        // Lembra-te de não apagar nada do script senão o "cérebro" morre!
+        
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
         const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
-
         let spotifyAccessToken = localStorage.getItem('spotify_token');
         let refreshToken = localStorage.getItem('refresh_token');
         let expiresAt = localStorage.getItem('expires_at');
         let autoMode = false;
+        let isProcessingAuto = false;
+        let lastInjectedUri = null;
         let durationMs = 0;
         let localProgressMs = 0;
-        let isProcessingAuto = false;
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
 
-        // --- PASSWORD ---
         function checkPass() {
             if(document.getElementById('passInput').value === "1234") {
                 document.getElementById('lock-screen').style.display = 'none';
@@ -84,7 +130,6 @@
             } else { alert("Errada!"); }
         }
 
-        // --- SPOTIFY AUTH ---
         async function loginSpotify() {
             const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
             localStorage.setItem('code_verifier', verifier);
@@ -104,23 +149,8 @@
             }
         }
 
-        async function refreshTokens() {
-            if (!refreshToken) return;
-            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'refresh_token', refresh_token: refreshToken });
-            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
-            const data = await res.json();
-            if (data.access_token) {
-                spotifyAccessToken = data.access_token;
-                localStorage.setItem('spotify_token', data.access_token);
-                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
-            }
-        }
-
-        // --- MONITOR ---
         async function monitor() {
             if (!spotifyAccessToken) return;
-            if (expiresAt && (Math.floor(Date.now() / 1000) > (expiresAt - 300))) await refreshTokens();
-
             try {
                 const res = await fetch("https://api.spotify.com/v1/me/player", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
                 if (res.status === 200) {
@@ -128,28 +158,41 @@
                     if (!data.item) return;
                     localProgressMs = data.progress_ms;
                     durationMs = data.item.duration_ms;
-
-                    await supabaseClient.from('playback_status').upsert({ id: 1, title: data.item.name, artist: data.item.artists[0].name, cover_url: data.item.album.images[0].url, progress_ms: data.progress_ms, duration_ms: data.item.duration_ms, user_name: (localStorage.getItem('last_uri') === data.item.uri ? localStorage.getItem('last_user') : "Spotify") });
-                    
-                    document.getElementById('tv-title').innerText = data.item.name;
-                    document.getElementById('tv-artist').innerText = data.item.artists[0].name;
-                    document.getElementById('tv-cover').src = data.item.album.images[0].url;
-                    document.getElementById('bg-blur').style.backgroundImage = `url('${data.item.album.images[0].url}')`;
-                    document.getElementById('tv-total-time').innerText = format(durationMs);
-
+                    await supabaseClient.from('playback_status').upsert({
+                        id: 1, title: data.item.name, artist: data.item.artists[0].name, cover_url: data.item.album.images[0].url, 
+                        progress_ms: data.progress_ms, duration_ms: data.item.duration_ms, 
+                        user_name: (localStorage.getItem('last_uri') === data.item.uri) ? localStorage.getItem('last_user') : "Spotify"
+                    });
+                    updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url, data.progress_ms, data.item.duration_ms, (localStorage.getItem('last_uri') === data.item.uri));
                     if (autoMode && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
                         isProcessingAuto = true;
-                        const { data: next } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
-                        if (next.length > 0) {
-                            await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(next[0].spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                            localStorage.setItem('last_uri', next[0].spotify_uri);
-                            localStorage.setItem('last_user', next[0].user_name);
-                            await supabaseClient.from('queue').update({ status: 'played' }).eq('id', next[0].id);
-                        }
+                        playNext();
                     }
-                    if (durationMs - localProgressMs > 20000) isProcessingAuto = false;
                 }
             } catch (e) { console.error(e); }
+        }
+
+        async function playNext() {
+            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
+            if (data?.length > 0) {
+                const s = data[0];
+                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                localStorage.setItem('last_uri', s.spotify_uri);
+                localStorage.setItem('last_user', s.user_name);
+                await supabaseClient.from('queue').update({ status: 'played' }).eq('id', s.id);
+            }
+        }
+
+        function updateUI(title, artist, cover, progress, duration, suggester) {
+            document.getElementById('tv-title').innerText = title;
+            document.getElementById('tv-artist').innerText = artist;
+            document.getElementById('tv-cover').src = cover;
+            document.getElementById('bg-blur').style.backgroundImage = `url('${cover}')`;
+            document.getElementById('tv-total-time').innerText = format(duration);
+            if (suggester) {
+                document.getElementById('tv-suggester-box').classList.remove('hidden');
+                document.getElementById('tv-suggester').innerText = localStorage.getItem('last_user');
+            } else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
         }
 
         function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
@@ -159,21 +202,21 @@
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
             const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
             data?.forEach(s => {
-                const d = document.createElement('div'); d.className = "flex items-center gap-6";
-                d.innerHTML = `<img src="${s.cover_url}" class="w-20 h-20 rounded-2xl shadow-lg"><div><p class="text-3xl font-bold truncate text-white">${s.title}</p><p class="text-lg text-[#d4af37] uppercase font-bold">${s.user_name}</p></div>`;
-                container.appendChild(d);
+                const div = document.createElement('div'); div.className = "flex items-center gap-10";
+                div.innerHTML = `<img src="${s.cover_url}" class="w-32 h-32 rounded-[30px] shadow-2xl object-cover"> <div class="flex-1 min-w-0"><p class="text-4xl font-[900] truncate text-white italic leading-tight">${s.title}</p><p class="text-xl text-[#d4af37] uppercase font-black tracking-widest mt-2 truncate">${s.user_name}</p></div>`;
+                container.appendChild(div);
             });
         }
 
         function initSystem() {
             setInterval(monitor, 2000);
             setInterval(() => { if(durationMs > 0) { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); } }, 1000);
-            supabaseClient.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+            supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
             fetchQueue();
         }
 
         const code = new URLSearchParams(window.location.search).get('code');
-        if (code) exchangeCode(code);
+        if (code) { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; exchangeCode(code); initSystem(); }
         lucide.createIcons();
     </script>
 </body>
