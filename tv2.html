@@ -23,12 +23,12 @@
 
         /* Fundo desfocado COM animação injetada */
         #bg-blur { 
-            position: fixed; inset: -10%; /* Esticado para não mostrar bordas ao mexer */
+            position: fixed; inset: -10%; 
             background-size: cover; background-position: center; 
             filter: blur(90px) brightness(0.3) saturate(1.5); 
             z-index: 1; 
             transition: background-image 2s ease-in-out; 
-            animation: ambient-drift 40s infinite alternate ease-in-out; /* Movimento de 40s */
+            animation: ambient-drift 40s infinite alternate ease-in-out; 
             transform-origin: center center;
         }
         
@@ -40,7 +40,7 @@
         .glass-panel { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(50px); border: 1px solid rgba(255, 255, 255, 0.05); }
         .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); transition: width 1s linear; }
         
-        #qrcode-container { background: white; padding: 10px; border-radius: 16px; display: inline-block; flex-shrink: 0; }
+        #qrcode-container { background: white; padding: 12px; border-radius: 18px; display: inline-block; flex-shrink: 0; }
         
         #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
 
@@ -112,7 +112,7 @@
             <div class="glass-panel p-[1.5vw] rounded-[2vw] flex items-center gap-[1.5vw] border border-[#d4af37]/30 bg-gradient-to-r from-[rgba(212,175,55,0.15)] to-[rgba(0,0,0,0.5)] shadow-[0_0_30px_rgba(212,175,55,0.1)]">
                 <div id="qrcode-container"></div>
                 <div class="min-w-0 flex-1">
-                    <p class="text-[#d4af37] text-[1vw] font-bold uppercase tracking-widest leading-none mb-2">Escaneia para pedir</p>
+                    <p class="text-[#d4af37] text-[1.6vw] font-bold uppercase tracking-widest leading-none mb-3">Escaneia para pedir</p>
                     <p class="text-white text-[2.8vw] font-black italic tracking-tight leading-none">MÚSICA</p>
                 </div>
             </div>
@@ -150,7 +150,8 @@
         function generateQR() { 
             const indexUrl = window.location.href.replace('tv.html', 'index.html'); 
             document.getElementById("qrcode-container").innerHTML = ""; 
-            new QRCode(document.getElementById("qrcode-container"), { text: indexUrl, width: 110, height: 110 }); 
+            // QR Code aumentado para 140
+            new QRCode(document.getElementById("qrcode-container"), { text: indexUrl, width: 140, height: 140 }); 
         }
 
         async function loginSpotify() {
@@ -216,7 +217,6 @@
                     document.getElementById('tv-artist').innerText = data.item.artists[0].name;
                     document.getElementById('tv-cover').src = data.item.album.images[0].url;
                     
-                    // A magia do fundo: atualizar a imagem mantém a animação a fluir
                     document.getElementById('bg-blur').style.backgroundImage = `url('${data.item.album.images[0].url}')`;
                     
                     document.getElementById('tv-total-time').innerText = format(durationMs);
