@@ -62,22 +62,11 @@ body {
         .search-input:focus { border-color: #d4af37; background: rgba(0,0,0,0.8); }
 
         /* CLASSE PARA TINTAR O LOGO DE DOURADO */
-    .logo-gold {
-        /* Define a cor de fundo como o Dourado Portinha */
-        background-color: #d4af37;
-        /* Usa o logo como uma máscara: o dourado só aparece onde a imagem original é visível */
-        -webkit-mask-image: url('logo_portinha.png');
-        mask-image: url('logo_portinha.png');
-        /* Ajustes para a máscara encaixar bem */
-        -webkit-mask-size: contain;
-        mask-size: contain;
-        -webkit-mask-repeat: no-repeat;
-        mask-repeat: no-repeat;
-        -webkit-mask-position: center;
-        mask-position: center;
-        /* Aumenta o brilho para parecer metalizado */
-        filter: brightness(1.1) contrast(1.1);
-        opacity: 0.9;
+    /* Filtro para transformar o azul original no Dourado Portinha #d4af37 */
+    .logo-gold-filter {
+        filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%);
+        width: 120px; /* Podes ajustar o tamanho aqui */
+        opacity: 0.8;
     }
     </style>
 </head>
