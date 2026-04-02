@@ -42,7 +42,6 @@
             background: rgba(255, 255, 255, 0.03); 
             backdrop-filter: blur(40px); 
             border: 1px solid rgba(255, 255, 255, 0.07); 
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         .progress-fill { 
@@ -53,6 +52,23 @@
         #lock-screen { 
             position: fixed; inset: 0; background: #000; z-index: 9999; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        }
+
+        /* --- MENU ADMIN (RESTAURADO) --- */
+        .admin-trigger { 
+            position: fixed; top: 0; left: 0; 
+            width: 150px; height: 150px; 
+            z-index: 100; 
+        }
+        .admin-menu { 
+            position: fixed; top: 40px; left: 40px; 
+            z-index: 101; display: none; 
+            background: rgba(0,0,0,0.95); 
+            padding: 30px; border-radius: 30px; 
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .admin-trigger:hover + .admin-menu, .admin-menu:hover { 
+            display: flex; flex-direction: column; gap: 15px; 
         }
     </style>
 </head>
@@ -66,6 +82,13 @@
 
     <div id="bg-blur"></div>
     <div class="vignette"></div>
+
+    <div class="admin-trigger"></div>
+    <div class="admin-menu">
+        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-8 py-3 rounded-full font-black text-xl hover:scale-105 transition-all">LOGIN SPOTIFY</button>
+        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-8 py-3 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
+        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-sm mt-2">RESET TOTAL</button>
+    </div>
 
     <div id="main-content">
         <div class="flex-1 flex items-center gap-[6vw] min-w-0">
@@ -103,15 +126,18 @@
     </div>
 
     <script>
-        // O Teu Script (Supabase/Spotify) continua aqui EXATAMENTE IGUAL ao anterior.
-        // Apenas as escalas visuais foram retocadas para não parecerem "gigantes".
-        
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
         const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
+        
         let spotifyAccessToken = localStorage.getItem('spotify_token');
-        let durationMs = 0; let localProgressMs = 0;
+        let refreshToken = localStorage.getItem('refresh_token');
+        let expiresAt = localStorage.getItem('expires_at');
+        let autoMode = false;
+        let isProcessingAuto = false;
+        let durationMs = 0;
+        let localProgressMs = 0;
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
 
         function checkPass() {
@@ -122,8 +148,42 @@
             } else { alert("Tenta de novo!"); }
         }
 
+        // --- SPOTIFY AUTH ---
+        async function loginSpotify() {
+            const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
+            localStorage.setItem('code_verifier', verifier);
+            const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user-modify-playback-state%20user-read-playback-state%20user-read-currently-playing&code_challenge_method=S256&code_challenge=${challenge}`;
+        }
+
+        async function exchangeCode(code) {
+            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: localStorage.getItem('code_verifier') });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+            const data = await res.json();
+            if (data.access_token) {
+                localStorage.setItem('spotify_token', data.access_token);
+                localStorage.setItem('refresh_token', data.refresh_token);
+                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
+                window.location.href = redirectUri;
+            }
+        }
+
+        async function refreshTokens() {
+            if (!refreshToken) return;
+            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'refresh_token', refresh_token: refreshToken });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+            const data = await res.json();
+            if (data.access_token) {
+                spotifyAccessToken = data.access_token;
+                localStorage.setItem('spotify_token', data.access_token);
+                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
+            }
+        }
+
         async function monitor() {
             if (!spotifyAccessToken) return;
+            if (expiresAt && (Math.floor(Date.now() / 1000) > (expiresAt - 300))) await refreshTokens();
+
             try {
                 const res = await fetch("https://api.spotify.com/v1/me/player", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
                 if (res.status === 200) {
@@ -140,8 +200,25 @@
                     });
 
                     updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url, isSuggester, currentUser);
+
+                    // AUTO-NEXT
+                    if (autoMode && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
+                        isProcessingAuto = true;
+                        playNext();
+                    }
                 }
             } catch (e) { console.error(e); }
+        }
+
+        async function playNext() {
+            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
+            if (data?.length > 0) {
+                const s = data[0];
+                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                localStorage.setItem('last_uri', s.spotify_uri);
+                localStorage.setItem('last_user', s.user_name);
+                await supabaseClient.from('queue').update({ status: 'played' }).eq('id', s.id);
+            }
         }
 
         function updateUI(title, artist, cover, isSuggester, user) {
@@ -157,6 +234,7 @@
         }
 
         function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
+        function toggleAutoMode() { autoMode = !autoMode; document.getElementById('auto-btn').innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; document.getElementById('auto-btn').style.color = autoMode ? '#1DB954' : 'white'; }
 
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
@@ -176,7 +254,7 @@
         }
 
         const code = new URLSearchParams(window.location.search).get('code');
-        if (code) { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; initSystem(); }
+        if (code) { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; exchangeCode(code); }
         lucide.createIcons();
     </script>
 </body>
