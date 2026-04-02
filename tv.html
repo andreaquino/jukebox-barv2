@@ -1,209 +1,60 @@
-<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Jukebox - TV Main System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { background-color: #000; color: white; overflow: hidden; font-family: 'Inter', sans-serif; }
-        #bg-blur {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-size: cover; background-position: center;
-            filter: blur(100px) brightness(0.35); transform: scale(1.2);
-            z-index: -1; transition: background-image 2s ease-in-out;
+<script>
+    const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
+    const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+    const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
+    
+    // --- CONFIGURAÇÃO DE SEGURANÇA ---
+    const TV_PASSWORD = "1234"; // MUDAR PARA A TUA PASSWORD DESEJADA
+    let isAuthenticated = false;
+
+    // Função para verificar a password logo ao abrir
+    function authenticate() {
+        const entry = prompt("Introduza a password de acesso ao Sistema Central:");
+        if (entry !== TV_PASSWORD) {
+            document.body.innerHTML = `
+                <div style="height:100vh; display:flex; align-items:center; justify-content:center; background:#000; color:#ff00ff; font-family:sans-serif; flex-direction:column; gap:20px;">
+                    <h1 style="font-size:3rem; font-weight:900;">ACESSO BLOQUEADO 🛑</h1>
+                    <button onclick="location.reload()" style="background:#fff; color:#000; padding:10px 20px; border-radius:50px; font-weight:bold; cursor:pointer;">TENTAR NOVAMENTE</button>
+                </div>
+            `;
+            return false;
         }
-        .glass-panel { background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(40px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .progress-container { background: rgba(255, 255, 255, 0.15); height: 12px; border-radius: 99px; position: relative; }
-        .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; transition: width 1s linear; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); }
-        .admin-btn { position: fixed; top: 10px; left: 10px; opacity: 0.05; transition: opacity 0.3s; z-index: 100; }
-        .admin-btn:hover { opacity: 1; }
-    </style>
-</head>
-<body class="h-screen flex flex-col p-16 relative">
+        return true;
+    }
 
-    <div id="bg-blur"></div>
+    // Só arranca o sistema se a password estiver correta
+    if (authenticate()) {
+        startSystem();
+    }
 
-    <div class="admin-btn flex gap-2">
-        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-4 py-2 rounded-full font-bold text-xs">LOGAR SPOTIFY</button>
-        <button id="auto-toggle" onclick="toggleAutoMode()" class="bg-white/10 text-white px-4 py-2 rounded-full font-bold text-xs">AUTO-NEXT: OFF</button>
-    </div>
-
-    <div class="flex-1 flex items-center gap-16 mb-24">
-        <div class="shrink-0">
-            <img id="tv-cover" src="" class="w-[450px] h-[450px] md:w-[550px] md:h-[550px] rounded-[32px] shadow-[0_40px_100px_rgba(0,0,0,0.8)] border border-white/10 object-cover">
-        </div>
-
-        <div class="flex-1 flex flex-col justify-center overflow-hidden">
-            <h1 id="tv-title" class="text-7xl md:text-8xl font-[900] tracking-tighter leading-[1.1] mb-6 line-clamp-2">...</h1>
-            <p id="tv-artist" class="text-4xl md:text-5xl text-white/60 font-medium mb-10 truncate italic">Aguardando sinal</p>
-            
-            <div id="tv-suggester-box" class="hidden inline-flex items-center gap-4 px-8 py-3 glass-panel rounded-2xl w-fit">
-                <span class="text-xl font-bold tracking-widest uppercase text-white/80">PEDIDO DE: <span id="tv-suggester" class="text-white">---</span></span>
-            </div>
-        </div>
-
-        <div class="w-96 glass-panel rounded-[40px] p-10 h-full max-h-[650px] flex flex-col">
-            <div class="flex items-center gap-4 mb-10 border-b border-white/10 pb-6">
-                <i data-lucide="list-music" class="text-white/40 w-8 h-8"></i>
-                <h2 class="text-xl font-black uppercase tracking-[0.2em] text-white/60">A SEGUIR</h2>
-            </div>
-            <div id="tv-queue-list" class="flex flex-col gap-8 overflow-y-auto"></div>
-        </div>
-    </div>
-
-    <div class="w-full max-w-[95%] mx-auto mt-auto">
-        <div class="flex justify-between items-end mb-6 px-2">
-            <span id="tv-current-time" class="text-3xl font-bold font-mono opacity-40">0:00</span>
-            <span id="tv-total-time" class="text-3xl font-bold font-mono opacity-40">0:00</span>
-        </div>
-        <div class="progress-container">
-            <div id="tv-progress" class="progress-fill" style="width: 0%"></div>
-        </div>
-    </div>
-
-    <script>
-        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-        const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
+    function startSystem() {
         let spotifyAccessToken = localStorage.getItem('spotify_token');
         let autoMode = false;
         let isProcessingAuto = false;
         let lastInjectedUri = null;
         let durationMs = 0;
         let localProgressMs = 0;
-
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
 
-        // --- SPOTIFY LOGIC (S256) ---
-        async function loginSpotify() {
-            const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
-            localStorage.setItem('code_verifier', verifier);
-            const encoder = new TextEncoder();
-            const data = encoder.encode(verifier);
-            const digest = await window.crypto.subtle.digest('SHA-256', data);
-            const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            const scope = 'user-modify-playback-state user-read-playback-state user-read-currently-playing';
-            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&code_challenge_method=S256&code_challenge=${challenge}`;
-        }
-
-        async function exchangeCodeForToken(code) {
-            const verifier = localStorage.getItem('code_verifier');
-            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: verifier });
-            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
-            const data = await res.json();
-            if (data.access_token) {
-                localStorage.setItem('spotify_token', data.access_token);
-                location.reload();
+        // --- MONITORIZAÇÃO (Aqui continua o resto do código que já tinhas) ---
+        setInterval(monitor, 2000);
+        setInterval(() => { 
+            localProgressMs += 1000; 
+            if(durationMs > 0) {
+                document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; 
+                document.getElementById('tv-current-time').innerText = format(localProgressMs); 
             }
-        }
-
-        // --- MONITORIZAÇÃO E BROADCAST ---
-        async function monitorPlayback() {
-            if (!spotifyAccessToken) return;
-            try {
-                const res = await fetch("https://api.spotify.com/v1/me/player", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                if (res.status === 200) {
-                    const data = await res.json();
-                    localProgressMs = data.progress_ms;
-                    durationMs = data.item.duration_ms;
-
-                    // Envia para o Supabase (Broadcast)
-                    await supabaseClient.from('playback_status').upsert({
-                        id: 1, title: data.item.name, artist: data.item.artists[0].name,
-                        cover_url: data.item.album.images[0].url, progress_ms: data.progress_ms,
-                        duration_ms: data.item.duration_ms, user_name: (lastInjectedUri === data.item.uri) ? (localStorage.getItem('last_suggester') || "Sugerida") : "Spotify"
-                    });
-
-                    updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url, data.progress_ms, data.item.duration_ms, (lastInjectedUri === data.item.uri));
-
-                    // Auto-Next
-                    if (autoMode) {
-                        const timeLeft = durationMs - localProgressMs;
-                        if (timeLeft > 20000) isProcessingAuto = false;
-                        if (timeLeft < 15000 && timeLeft > 5000 && !isProcessingAuto) {
-                            isProcessingAuto = true;
-                            autoPlayNext();
-                        }
-                    }
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        async function autoPlayNext() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
-            if (data && data.length > 0) {
-                const song = data[0];
-                const res = await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(song.spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                if (res.ok) {
-                    lastInjectedUri = song.spotify_uri;
-                    localStorage.setItem('last_suggester', song.user_name);
-                    await supabaseClient.from('queue').update({ status: 'played' }).eq('id', song.id);
-                }
-            }
-        }
-
-        function updateUI(title, artist, cover, progress, duration, isSuggester) {
-            document.getElementById('tv-title').innerText = title;
-            document.getElementById('tv-artist').innerText = artist;
-            document.getElementById('tv-cover').src = cover;
-            document.getElementById('bg-blur').style.backgroundImage = `url('${cover}')`;
-            document.getElementById('tv-total-time').innerText = formatTime(duration);
-            
-            if (isSuggester) {
-                document.getElementById('tv-suggester-box').classList.remove('hidden');
-                document.getElementById('tv-suggester').innerText = localStorage.getItem('last_suggester');
-            } else {
-                document.getElementById('tv-suggester-box').classList.add('hidden');
-            }
-        }
-
-        function formatTime(ms) {
-            const min = Math.floor(ms / 60000);
-            const sec = Math.floor((ms % 60000) / 1000);
-            return min + ":" + (sec < 10 ? '0' : '') + sec;
-        }
-
-        function toggleAutoMode() {
-            autoMode = !autoMode;
-            document.getElementById('auto-toggle').innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`;
-            document.getElementById('auto-toggle').classList.toggle('bg-green-600', autoMode);
-        }
-
-        // --- FILA ---
-        async function fetchQueue() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
-            const container = document.getElementById('tv-queue-list');
-            container.innerHTML = "";
-            (data || []).forEach(song => {
-                const div = document.createElement('div');
-                div.className = "flex items-center gap-6 opacity-80";
-                div.innerHTML = `<img src="${song.cover_url}" class="w-20 h-20 rounded-2xl object-cover shadow-lg"><div><p class="text-2xl font-bold text-white truncate">${song.title}</p><p class="text-sm text-white/40 uppercase font-bold tracking-widest">${song.user_name}</p></div>`;
-                container.appendChild(div);
-            });
-        }
-
-        // --- INIT ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        if (code) exchangeCodeForToken(code);
-
-        setInterval(monitorPlayback, 2000);
-        setInterval(() => {
-            localProgressMs += 1000;
-            const percent = (localProgressMs / durationMs) * 100;
-            document.getElementById('tv-progress').style.width = percent + '%';
-            document.getElementById('tv-current-time').innerText = formatTime(localProgressMs);
         }, 1000);
+
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) exchangeCode(code);
 
         supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         fetchQueue();
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+        initTVBroadcast(); // Função que liga os ouvintes da TV
+    }
+
+    // ... (Aqui colas o resto das funções: loginSpotify, exchangeCode, monitor, playNext, updateUI, format, toggleAutoMode, fetchQueue)
+</script>
