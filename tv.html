@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha TV - Ultimate System</title>
+    <title>Portinha TV - Ultimate System v3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,13 +21,16 @@
         .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; box-shadow: 0 0 30px rgba(255, 255, 255, 0.5); transition: width 1s linear; }
         
         #qrcode-container { background: white; padding: 8px; border-radius: 12px; display: inline-block; }
+        #qrcode-container img { width: 90px; height: 90px; }
+        
         #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
 
-        /* --- MENU ADMIN OCULTO --- */
+        /* MENU ADMIN OCULTO */
         .admin-trigger { position: fixed; top: 0; left: 0; width: 150px; height: 150px; z-index: 10001; }
         .admin-menu { position: fixed; top: 40px; left: 40px; z-index: 10002; display: none; background: rgba(0,0,0,0.98); padding: 35px; border-radius: 35px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 0 50px rgba(0,0,0,1); }
         .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; flex-direction: column; gap: 20px; }
 
+        /* AUTO-FIT TITLE */
         #tv-title { white-space: nowrap; display: block; width: 100%; }
     </style>
 </head>
@@ -46,7 +49,7 @@
         <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-10 py-4 rounded-full font-black text-xl hover:scale-105 transition-all">CONECTAR SPOTIFY</button>
         <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-10 py-4 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
         <hr class="opacity-10 my-2">
-        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-sm font-bold uppercase">Reset Total</button>
+        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-sm font-bold uppercase">Reset Total / Logout</button>
     </div>
 
     <div id="bg-blur"></div>
@@ -72,7 +75,7 @@
                         <i data-lucide="list-music" class="w-6 h-6"></i>
                         <h2 class="text-xl font-black uppercase tracking-widest italic">A Seguir</h2>
                     </div>
-                    <div id="tv-queue-list" class="flex flex-col gap-6 overflow-y-auto"></div>
+                    <div id="tv-queue-list" class="flex flex-col gap-6 overflow-y-auto pr-1"></div>
                 </div>
 
                 <div class="glass-panel p-5 rounded-[25px] flex items-center gap-5">
@@ -110,6 +113,7 @@
         let durationMs = 0; let localProgressMs = 0;
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
 
+        // --- FUNÇÃO AUTO-FIT ---
         function adjustFontSize() {
             const title = document.getElementById('tv-title');
             const container = document.getElementById('title-container');
@@ -129,7 +133,9 @@
             const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
             localStorage.setItem('code_verifier', verifier);
             const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user-modify-playback-state%20user-read-playback-state%20user-read-currently-playing&code_challenge_method=S256&code_challenge=${challenge}`;
+            // Scopes atualizados para ler a fila
+            const scopes = 'user-modify-playback-state user-read-playback-state user-read-currently-playing';
+            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&code_challenge_method=S256&code_challenge=${challenge}`;
         }
 
         async function exchangeCode(code) {
@@ -182,12 +188,11 @@
                     if (isSuggester) { document.getElementById('tv-suggester-box').classList.remove('hidden'); document.getElementById('tv-suggester').innerText = currentUser; } 
                     else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
 
-                    // AUTO-NEXT (15 seg antes de acabar)
-                    if (autoMode && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
+                    if (autoMode && (durationMs - localProgressMs < 12000) && !isProcessingAuto) {
                         isProcessingAuto = true;
                         playNext();
                     }
-                    if (durationMs - localProgressMs > 20000) isProcessingAuto = false;
+                    if (durationMs - localProgressMs > 15000) isProcessingAuto = false;
                 }
             } catch (e) { console.error(e); }
         }
@@ -207,38 +212,47 @@
             }
         }
 
-        function toggleAutoMode() { 
-            autoMode = !autoMode; 
-            const btn = document.getElementById('auto-btn');
-            btn.innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; 
-            btn.style.color = autoMode ? '#1DB954' : 'white'; 
-        }
-
+        function toggleAutoMode() { autoMode = !autoMode; const btn = document.getElementById('auto-btn'); btn.innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; btn.style.color = autoMode ? '#1DB954' : 'white'; }
         function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
         
+        // --- FILA HÍBRIDA ---
         async function fetchQueue() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
-            const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
-            data?.forEach(s => {
-                const div = document.createElement('div'); div.className = "flex items-center gap-4";
-                div.innerHTML = `<img src="${s.cover_url}" class="w-16 h-16 rounded-xl object-cover"> <div class="flex-1 min-w-0"><p class="text-xl font-black truncate text-white italic leading-tight">${s.title}</p><p class="text-sm text-[#d4af37] uppercase font-black truncate mt-1">${s.user_name}</p></div>`;
-                container.appendChild(div);
-            });
+            const { data: suggestions } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
+            const container = document.getElementById('tv-queue-list');
+            container.innerHTML = "";
+
+            if (suggestions && suggestions.length > 0) {
+                suggestions.forEach(s => {
+                    const div = document.createElement('div'); div.className = "flex items-center gap-4 animate-in fade-in slide-in-from-right duration-500";
+                    div.innerHTML = `<img src="${s.cover_url}" class="w-16 h-16 rounded-xl object-cover shadow-lg border border-white/5"> <div class="flex-1 min-w-0"><p class="text-xl font-black truncate text-white italic leading-tight">${s.title}</p><p class="text-sm text-[#d4af37] uppercase font-black truncate mt-1">Pedido: ${s.user_name}</p></div>`;
+                    container.appendChild(div);
+                });
+            } else if (spotifyAccessToken) {
+                // Se não houver pedidos, busca a fila do Spotify
+                try {
+                    const res = await fetch("https://api.spotify.com/v1/me/player/queue", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                    if (res.status === 200) {
+                        const qData = await res.json();
+                        qData.queue.slice(0, 5).forEach(t => {
+                            const div = document.createElement('div'); div.className = "flex items-center gap-4 opacity-50";
+                            div.innerHTML = `<img src="${t.album.images[0].url}" class="w-16 h-16 rounded-xl object-cover grayscale-[40%]"> <div class="flex-1 min-w-0"><p class="text-xl font-black truncate text-white italic leading-tight">${t.name}</p><p class="text-sm text-white/40 uppercase font-black truncate mt-1 italic">Playlist Portinha</p></div>`;
+                            container.appendChild(div);
+                        });
+                    }
+                } catch(e) {}
+            }
         }
 
         function initSystem() {
             setInterval(monitor, 2000);
             setInterval(() => { if(durationMs > 0) { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); } }, 1000);
             supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+            setInterval(fetchQueue, 10000); // Atualiza a cada 10s para a fila do Spotify
             fetchQueue();
         }
 
         const code = new URLSearchParams(window.location.search).get('code');
-        if (code) { 
-            document.getElementById('lock-screen').style.display = 'none'; 
-            document.getElementById('main-content').style.opacity = '1'; 
-            exchangeCode(code); 
-        }
+        if (code) { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; exchangeCode(code); }
         lucide.createIcons();
     </script>
 </body>
