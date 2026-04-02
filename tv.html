@@ -3,70 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha TV - 4K Ultra System</title>
+    <title>Portinha TV - 4K Master System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         
-        /* IMPEDIR QUALQUER SCROLL HORIZONTAL OU VERTICAL */
-        html, body { 
-            background-color: #000 !important; 
+        body, html { 
+            background-color: #000; 
             color: white; 
             margin: 0; padding: 0; 
             width: 100vw; height: 100vh; 
             overflow: hidden !important; 
             font-family: 'Inter', sans-serif; 
         }
-        
-        /* CAMADA DO ÁLBUM DESFOCADO (O GLOW) */
+
+        /* FUNDO DINÂMICO (GLOW) */
         #bg-blur {
             position: fixed; inset: 0;
             background-size: cover; background-position: center;
-            filter: blur(120px) brightness(0.2) saturate(2); /* Brilho ajustado para não cansar a vista */
-            transform: scale(1.4);
-            z-index: 0; 
+            filter: blur(100px) brightness(0.25) saturate(2);
+            transform: scale(1.2);
+            z-index: 1; /* Camada mais baixa */
             transition: background-image 2s ease-in-out;
         }
 
-        /* CAMADA DE ESCURIDÃO PARA DAR FOCO AO CONTEÚDO */
         .vignette {
             position: fixed; inset: 0;
-            background: radial-gradient(circle, transparent 20%, rgba(0,0,0,0.8) 100%);
-            z-index: 1;
+            background: radial-gradient(circle, transparent 30%, rgba(0,0,0,0.9) 100%);
+            z-index: 2;
+        }
+
+        /* CONTEÚDO ACIMA DO FUNDO */
+        #main-content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            padding: 5vh 4vw;
+            box-sizing: border-box;
+            opacity: 0;
+            transition: opacity 1s;
         }
 
         .glass-panel { 
-            background: rgba(0, 0, 0, 0.45); 
+            background: rgba(0, 0, 0, 0.4); 
             backdrop-filter: blur(60px); 
             border: 1px solid rgba(255, 255, 255, 0.08); 
-            box-shadow: 0 40px 100px rgba(0,0,0,0.5);
         }
 
         .progress-fill { 
             background: #ffffff; 
             height: 100%; 
             border-radius: 99px; 
-            transition: width 1s linear; 
-            box-shadow: 0 0 50px rgba(255, 255, 255, 0.8); 
+            box-shadow: 0 0 40px rgba(255, 255, 255, 0.6); 
         }
 
-        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 10000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        #main-content { position: relative; z-index: 10; height: 100vh; display: flex; flex-direction: column; }
+        /* ECRÃ DE BLOQUEIO */
+        #lock-screen { 
+            position: fixed; inset: 0; 
+            background: #000; 
+            z-index: 9999; 
+            display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+        }
 
-        /* Menu Admin Oculto */
-        .admin-trigger { position: fixed; top: 0; left: 0; width: 150px; height: 150px; z-index: 100; }
-        .admin-menu { position: fixed; top: 40px; left: 40px; z-index: 101; display: none; background: rgba(0,0,0,0.95); padding: 40px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); }
-        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; flex-direction: column; gap: 20px; }
+        /* ADMIN */
+        .admin-trigger { position: fixed; top: 0; left: 0; width: 10vw; height: 10vh; z-index: 100; }
+        .admin-menu { position: fixed; top: 40px; left: 40px; z-index: 101; display: none; background: rgba(0,0,0,0.95); padding: 30px; border-radius: 30px; }
+        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; flex-direction: column; gap: 15px; }
     </style>
 </head>
 <body>
 
     <div id="lock-screen">
-        <h2 class="text-[#d4af37] text-7xl font-[900] italic mb-12 tracking-tighter">PORTINHA 🔐</h2>
-        <input type="password" id="passInput" placeholder="Password" class="bg-white/5 border border-[#d4af37]/30 rounded-3xl px-12 py-6 text-center text-5xl text-white outline-none focus:border-white w-[500px]">
-        <button onclick="checkPass()" class="mt-12 bg-white text-black px-20 py-6 rounded-full text-3xl font-black">ENTRAR</button>
+        <h2 class="text-[#d4af37] text-[6rem] font-[900] italic mb-10 tracking-tighter">PORTINHA 🔐</h2>
+        <input type="password" id="passInput" placeholder="Password" class="bg-white/5 border border-[#d4af37]/30 rounded-3xl px-10 py-6 text-center text-5xl text-white outline-none focus:border-white w-[30vw]">
+        <button onclick="checkPass()" class="mt-10 bg-white text-black px-16 py-6 rounded-full text-3xl font-black transition-transform active:scale-95">ENTRAR</button>
     </div>
 
     <div id="bg-blur"></div>
@@ -74,41 +90,41 @@
 
     <div class="admin-trigger"></div>
     <div class="admin-menu">
-        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-10 py-4 rounded-full font-black text-xl">LOGIN SPOTIFY</button>
-        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-10 py-4 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
+        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-8 py-3 rounded-full font-black text-xl">LOGIN SPOTIFY</button>
+        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-8 py-3 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
     </div>
 
-    <div id="main-content" class="p-24 opacity-0 transition-opacity duration-1000">
+    <div id="main-content">
         
-        <div class="flex-1 flex items-center gap-24 mb-20 min-w-0">
-            <div class="shrink-0">
-                <img id="tv-cover" src="" class="w-[650px] h-[650px] md:w-[850px] md:h-[850px] rounded-[60px] shadow-[0_80px_150px_rgba(0,0,0,0.9)] border border-white/10 object-cover">
+        <div class="flex-1 flex items-center gap-[4vw] min-w-0">
+            <div class="w-[38vw] flex-shrink-0">
+                <img id="tv-cover" src="" class="w-full aspect-square rounded-[5vh] shadow-[0_60px_120px_rgba(0,0,0,0.8)] border border-white/10 object-cover">
             </div>
 
-            <div class="flex-1 flex flex-col justify-center min-w-0">
-                <h1 id="tv-title" class="text-[10rem] font-[900] tracking-tighter leading-[0.95] mb-12 truncate italic">...</h1>
-                <p id="tv-artist" class="text-7xl text-white/40 font-medium mb-16 truncate italic">Sincronizando...</p>
+            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                <h1 id="tv-title" class="text-[8vw] font-[900] tracking-tighter leading-[1.1] mb-6 truncate italic">...</h1>
+                <p id="tv-artist" class="text-[4vw] text-white/40 font-medium mb-12 truncate italic">Sincronizando...</p>
                 
-                <div id="tv-suggester-box" class="hidden inline-flex items-center gap-8 px-12 py-6 glass-panel rounded-[35px] w-fit border-l-[15px] border-l-[#d4af37]">
-                    <span class="text-3xl font-black uppercase tracking-[0.3em] text-white/90">PEDIDO DE: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
+                <div id="tv-suggester-box" class="hidden inline-flex items-center gap-6 px-10 py-5 glass-panel rounded-[25px] w-fit border-l-[1vw] border-l-[#d4af37]">
+                    <span class="text-[1.8vw] font-black uppercase tracking-widest text-white/90">PEDIDO DE: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
                 </div>
             </div>
 
-            <div class="w-[650px] shrink-0 glass-panel rounded-[80px] p-16 h-full max-h-[850px] flex flex-col self-stretch">
-                <div class="flex items-center gap-6 mb-12 border-b border-white/10 pb-10">
-                    <i data-lucide="list-music" class="text-[#d4af37] w-12 h-12"></i>
-                    <h2 class="text-3xl font-black uppercase tracking-[0.4em] text-white/30 italic">Próximas</h2>
+            <div class="w-[22vw] glass-panel rounded-[5vh] p-10 h-[75vh] flex flex-col flex-shrink-0">
+                <div class="flex items-center gap-4 mb-8 border-b border-white/10 pb-6 text-white/30">
+                    <i data-lucide="list-music" class="w-8 h-8"></i>
+                    <h2 class="text-2xl font-black uppercase tracking-widest italic">Próximas</h2>
                 </div>
-                <div id="tv-queue-list" class="flex flex-col gap-12 overflow-y-auto pr-4"></div>
+                <div id="tv-queue-list" class="flex flex-col gap-8 overflow-y-auto pr-2"></div>
             </div>
         </div>
 
-        <div class="w-full mt-auto mb-4">
-            <div class="flex justify-between items-end mb-10 px-8">
-                <span id="tv-current-time" class="text-5xl font-black font-mono opacity-20">0:00</span>
-                <span id="tv-total-time" class="text-5xl font-black font-mono opacity-20">0:00</span>
+        <div class="h-[12vh] flex flex-col justify-end">
+            <div class="flex justify-between items-end mb-6 px-4 text-4xl font-black font-mono opacity-20">
+                <span id="tv-current-time">0:00</span>
+                <span id="tv-total-time">0:00</span>
             </div>
-            <div class="bg-white/10 h-7 rounded-full relative overflow-hidden border border-white/5">
+            <div class="bg-white/10 h-4 rounded-full overflow-hidden border border-white/5">
                 <div id="tv-progress" class="progress-fill" style="width: 0%"></div>
             </div>
         </div>
@@ -124,7 +140,6 @@
         let refreshToken = localStorage.getItem('refresh_token');
         let expiresAt = localStorage.getItem('expires_at');
         let autoMode = false;
-        let isProcessingAuto = false;
         let durationMs = 0;
         let localProgressMs = 0;
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
@@ -134,7 +149,7 @@
                 document.getElementById('lock-screen').style.display = 'none';
                 document.getElementById('main-content').style.opacity = '1';
                 initSystem();
-            } else { alert("Errada!"); }
+            } else { alert("Tenta outra vez!"); }
         }
 
         async function loginSpotify() {
@@ -175,51 +190,30 @@
                     });
 
                     updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url, isSuggester, currentUser);
-
-                    if (autoMode && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
-                        isProcessingAuto = true;
-                        playNext();
-                    }
                 }
             } catch (e) { console.error(e); }
-        }
-
-        async function playNext() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
-            if (data?.length > 0) {
-                const s = data[0];
-                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                localStorage.setItem('last_uri', s.spotify_uri);
-                localStorage.setItem('last_user', s.user_name);
-                await supabaseClient.from('queue').update({ status: 'played' }).eq('id', s.id);
-            }
         }
 
         function updateUI(title, artist, cover, isSuggester, user) {
             document.getElementById('tv-title').innerText = title;
             document.getElementById('tv-artist').innerText = artist;
             document.getElementById('tv-cover').src = cover;
-            // AQUI É ONDE O GLOW VOLTA A APARECER:
             document.getElementById('bg-blur').style.backgroundImage = `url('${cover}')`;
             document.getElementById('tv-total-time').innerText = format(durationMs);
-            
             if (isSuggester) {
                 document.getElementById('tv-suggester-box').classList.remove('hidden');
                 document.getElementById('tv-suggester').innerText = user;
-            } else { 
-                document.getElementById('tv-suggester-box').classList.add('hidden'); 
-            }
+            } else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
         }
 
         function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
-        function toggleAutoMode() { autoMode = !autoMode; document.getElementById('auto-btn').innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; }
-
+        
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
             const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
             data?.forEach(s => {
-                const div = document.createElement('div'); div.className = "flex items-center gap-10";
-                div.innerHTML = `<img src="${s.cover_url}" class="w-32 h-32 rounded-[30px] shadow-2xl object-cover border border-white/5"> <div class="flex-1 min-w-0"><p class="text-4xl font-[900] truncate text-white italic leading-tight">${s.title}</p><p class="text-xl text-[#d4af37] uppercase font-black tracking-widest mt-2 truncate">${s.user_name}</p></div>`;
+                const div = document.createElement('div'); div.className = "flex items-center gap-6";
+                div.innerHTML = `<img src="${s.cover_url}" class="w-20 h-20 rounded-2xl object-cover shadow-lg border border-white/5"> <div class="flex-1 min-w-0"><p class="text-2xl font-black truncate text-white italic leading-tight">${s.title}</p><p class="text-lg text-[#d4af37] uppercase font-black truncate mt-1">${s.user_name}</p></div>`;
                 container.appendChild(div);
             });
         }
