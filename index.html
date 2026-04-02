@@ -23,21 +23,12 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         
-        body { 
-            background-color: #000; 
-            font-family: 'Inter', sans-serif;
-            color: #f3e5ab;
-            min-height: 100vh;
+body { 
+            margin: 0; padding: 0; background-color: #000; color: #f3e5ab; font-family: sans-serif;
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('bar_background_portinha.jpg');
+            background-size: cover; background-position: center; background-attachment: fixed;
         }
-
-        /* Fundo com a foto da taverna */
-        .bg-taverna {
-            position: fixed; inset: 0;
-            background-image: url('https://imgur.com/a/fHNGZqh'); /* USA A MESMA FOTO DA TV */
-            background-size: cover; background-position: center;
-            filter: brightness(0.2) contrast(1.2);
-            z-index: -1;
-        }
+        
 
         /* Cartões estilo Madeira/Vidro escuro */
         .wood-panel {
