@@ -125,14 +125,15 @@
             clearTimeout(sTimer);
             sTimer = setTimeout(async () => {
                 
-                // --- CONFIGURAÇÃO DE CURADORIA (WHITELIST COMPLETA) ---
-                // Adicionei os estilos que pediste. Podes apagar os que não quiseres apagando a parte "OR genre:nome"
-                const whitelist = " genre:rock OR genre:grunge OR genre:metal OR genre:hard-rock OR genre:alternative OR genre:punk OR genre:jazz OR genre:blues OR genre:indie OR genre:indie-rock OR genre:folk OR genre:soul OR genre:acoustic OR genre:classic-rock OR genre:lo-fi";
-                const finalQuery = qOriginal + whitelist;
+                // --- CONFIGURAÇÃO DE CURADORIA (BLACKLIST) ---
+                // Adicionamos um "-" antes de cada género para o Spotify subtrair estas opções dos resultados.
+                const blacklist = " -genre:pimba -genre:funk-brazil -genre:sertanejo -genre:sertanejo-universitario -genre:axe -genre:pagode -genre:reggaeton -genre:k-pop";
+                const finalQuery = qOriginal + blacklist;
                 
                 const token = await getSpotifyToken();
                 try {
-                    const res = await fetch(`https://api.spotify.com/v1/search?q=$$?q=${encodeURIComponent(finalQuery)}&type=track&limit=5`, { 
+                    // Corrigido para a API oficial do Spotify com interpolação de string garantida
+                    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(finalQuery)}&type=track&limit=5`, { 
                         headers: { 'Authorization': 'Bearer ' + token } 
                     });
                     const data = await res.json();
@@ -140,8 +141,7 @@
                     results.innerHTML = "";
 
                     if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
-                        // Mensagem de erro atualizada para refletir os novos estilos
-                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra na Portinha. Tenta Rock, Indie, Jazz, Blues ou Metal! 🤘🍷</p>";
+                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Nenhum resultado... (ou o estilo não combina com a Portinha 🍷)</p>";
                         return;
                     }
 
