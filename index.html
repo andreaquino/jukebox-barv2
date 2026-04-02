@@ -13,8 +13,8 @@
                 extend: {
                     colors: {
                         portinhaBlue: '#1a365d',
-                        portinhaTerracotta: '#c05621',
-                        portinhaBeige: '#f3e5ab',
+                        portinhaGold: '#d4af37',
+                        portinhaRed: '#4a0404', // Tom bordeaux profundo
                     },
                     fontFamily: {
                         serif: ['Georgia', 'serif'],
@@ -24,32 +24,49 @@
         }
     </script>
     <style>
-        body { background-color: #f3e5ab; color: #1a365d; font-family: 'serif'; }
-        .rustic-card {
-            background: rgba(255, 255, 255, 0.4);
-            border: 1px solid rgba(26, 54, 93, 0.1);
-            backdrop-filter: blur(5px);
-            border-radius: 20px;
+        /* Fundo com padrão que lembra o papel de parede clássico */
+        body { 
+            background-color: #2d0101;
+            background-image: radial-gradient(#4a0404 1px, transparent 1px), radial-gradient(#4a0404 1px, #1a0101 1px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+            color: #f3e5ab; 
+            font-family: 'serif'; 
         }
-        .btn-portinha {
+
+        /* Cartões estilo Madeira Escura */
+        .wood-card {
+            background: rgba(15, 5, 5, 0.85);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .btn-action {
             background-color: #1a365d;
-            color: #f3e5ab;
-            transition: all 0.3s ease;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(26, 54, 93, 0.4);
         }
-        .btn-portinha:active { transform: scale(0.95); }
+
+        /* Input escuro */
+        input::placeholder { color: rgba(243, 229, 171, 0.4); }
     </style>
 </head>
 <body class="min-h-screen p-4 flex flex-col items-center">
 
-    <header class="w-full max-w-xl mb-8 rustic-card p-5 shadow-sm">
-        <p class="text-[10px] uppercase tracking-[0.2em] mb-3 opacity-60 font-sans font-bold">A tocar no bar</p>
-        <div class="flex gap-4 items-center">
-            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-md object-cover border border-portinhaBlue/10">
+    <header class="w-full max-w-xl mb-8 wood-card p-6 border-b-2 border-portinhaGold/30">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+            <p class="text-[10px] uppercase tracking-[0.3em] font-sans font-black text-portinhaGold">No Ar na Portinha</p>
+        </div>
+        <div class="flex gap-5 items-center">
+            <img id="client-cover" src="https://via.placeholder.com/100" class="w-24 h-24 rounded-2xl shadow-2xl object-cover border border-white/5">
             <div class="overflow-hidden flex-1">
-                <p id="client-title" class="font-bold text-xl truncate leading-tight">Sincronizando...</p>
-                <p id="client-artist" class="text-portinhaBlue/60 text-sm italic">Portinha</p>
-                <div class="w-full bg-portinhaBlue/10 h-1.5 rounded-full mt-4">
-                    <div id="client-progress" class="bg-portinhaBlue h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
+                <p id="client-title" class="font-bold text-2xl truncate leading-tight text-white">Sincronizando...</p>
+                <p id="client-artist" class="text-portinhaGold/80 text-lg italic mt-1">Aguarde...</p>
+                <div class="w-full bg-white/5 h-2 rounded-full mt-5">
+                    <div id="client-progress" class="bg-gradient-to-r from-portinhaBlue to-blue-400 h-full rounded-full transition-all duration-1000"></div>
                 </div>
             </div>
         </div>
@@ -58,24 +75,25 @@
     <main class="w-full max-w-xl flex-1">
         <section class="mb-10 relative">
             <div class="relative flex items-center">
-                <i data-lucide="search" class="absolute left-5 text-portinhaBlue/40 w-5 h-5"></i>
-                <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Escolhe a tua música..." class="w-full bg-white/50 border border-portinhaBlue/10 rounded-2xl pl-14 pr-6 py-5 outline-none focus:border-portinhaTerracotta text-lg transition-all shadow-inner">
+                <i data-lucide="search" class="absolute left-6 text-portinhaGold/50 w-6 h-6"></i>
+                <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pede a tua música..." class="w-full bg-black/40 border border-portinhaGold/20 rounded-2xl pl-16 pr-6 py-5 outline-none focus:border-portinhaGold text-xl transition-all text-white backdrop-blur-sm">
             </div>
-            <div id="search-results" class="mt-4 flex flex-col gap-2"></div>
+            <div id="search-results" class="mt-4 flex flex-col gap-3"></div>
         </section>
 
         <section>
             <div class="flex items-center gap-3 mb-6">
-                <i data-lucide="music-2" class="text-portinhaTerracotta w-6 h-6"></i>
-                <h2 class="text-2xl font-bold italic">Próximas Escolhas</h2>
+                <i data-lucide="list-music" class="text-portinhaGold w-7 h-7"></i>
+                <h2 class="text-3xl font-black italic text-white tracking-tighter">A Seguir</h2>
             </div>
-            <div id="queue-list" class="flex flex-col gap-4"></div>
+            <div id="queue-list" class="flex flex-col gap-5"></div>
         </section>
     </main>
 
-    <footer class="mt-16 mb-8 text-center border-t border-portinhaBlue/5 pt-8 w-full max-w-xs">
-        <h2 class="text-xl font-black italic tracking-tighter opacity-80">PORTINHA</h2>
-        <p class="text-[9px] uppercase tracking-[0.4em] opacity-40 mt-1">Sabores e Tradição</p>
+    <footer class="mt-16 mb-10 text-center opacity-40">
+        <div class="w-16 h-px bg-portinhaGold mx-auto mb-4"></div>
+        <h2 class="text-2xl font-black italic tracking-tighter text-white">PORTINHA</h2>
+        <p class="text-[10px] uppercase tracking-[0.5em] mt-1 text-portinhaGold">Est. 1996</p>
     </footer>
 
     <script>
@@ -86,7 +104,6 @@
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
-        // --- SINCRONIZAÇÃO COM A TV ---
         async function initClient() {
             const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
             if (data) updateClientUI(data);
@@ -100,7 +117,6 @@
             document.getElementById('client-progress').style.width = (data.progress_ms / data.duration_ms * 100) + '%';
         }
 
-        // --- PESQUISA SPOTIFY ---
         let searchTimer;
         function debounceSearch() {
             clearTimeout(searchTimer);
@@ -125,15 +141,15 @@
                 results.innerHTML = "";
                 data.tracks.items.forEach(song => {
                     const div = document.createElement('div');
-                    div.className = "flex items-center gap-4 rustic-card p-3 shadow-sm active:bg-white/60 transition-colors cursor-pointer";
+                    div.className = "flex items-center gap-4 wood-card p-4 active:scale-95 transition-all cursor-pointer";
                     div.onclick = () => addToQueue(song);
                     div.innerHTML = `
-                        <img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg">
+                        <img src="${song.album.images[2].url}" class="w-14 h-14 rounded-xl shadow-lg">
                         <div class="flex-1 overflow-hidden">
-                            <p class="font-bold text-sm truncate">${song.name}</p>
-                            <p class="text-xs opacity-60 italic">${song.artists[0].name}</p>
+                            <p class="font-bold text-white truncate">${song.name}</p>
+                            <p class="text-sm text-portinhaGold/60 italic">${song.artists[0].name}</p>
                         </div>
-                        <i data-lucide="plus-circle" class="w-5 h-5 text-portinhaTerracotta"></i>
+                        <i data-lucide="plus" class="text-portinhaGold"></i>
                     `;
                     results.appendChild(div);
                 });
@@ -143,9 +159,9 @@
 
         async function addToQueue(song) {
             const { data: count } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).eq('status', 'pending');
-            if (count && count.length >= 3) return alert("Já tens 3 músicas na fila. Espera que toquem!");
+            if (count && count.length >= 3) return alert("Já tens 3 na fila!");
             
-            const name = prompt("Como te chamas?");
+            const name = prompt("Teu nome?");
             if (!name) return;
 
             await supabaseClient.from('queue').insert([{ 
@@ -155,10 +171,8 @@
             
             document.getElementById('searchInput').value = "";
             document.getElementById('search-results').innerHTML = "";
-            alert("Boa escolha! Já está na fila.");
         }
 
-        // --- GESTÃO DA FILA ---
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
             const container = document.getElementById('queue-list');
@@ -166,15 +180,15 @@
 
             (data || []).forEach(song => {
                 const div = document.createElement('div');
-                div.className = "flex items-center gap-4 rustic-card p-4 shadow-sm";
+                div.className = "flex items-center gap-4 wood-card p-5 border-l-4 border-portinhaGold/40";
                 div.innerHTML = `
-                    <img src="${song.cover_url}" class="w-14 h-14 rounded-xl shadow-sm border border-portinhaBlue/5">
+                    <img src="${song.cover_url}" class="w-16 h-16 rounded-xl shadow-lg">
                     <div class="flex-1 overflow-hidden">
-                        <p class="font-bold text-sm truncate">${song.title}</p>
-                        <p class="text-[10px] uppercase tracking-widest opacity-50 font-sans font-bold">Por: ${song.user_name}</p>
+                        <p class="font-black text-white truncate">${song.title}</p>
+                        <p class="text-xs uppercase tracking-widest text-portinhaGold font-sans mt-1">Por: ${song.user_name}</p>
                     </div>
-                    <button onclick="upvote('${song.id}')" class="btn-portinha px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-                        <i data-lucide="heart" class="w-3 h-3"></i> ${song.votes}
+                    <button onclick="upvote('${song.id}')" class="bg-portinhaGold text-black px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2">
+                        ❤️ ${song.votes}
                     </button>
                 `;
                 container.appendChild(div);
@@ -184,15 +198,13 @@
 
         async function upvote(id) {
             const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
-            if (v && v.length > 0) return alert("Já deste o teu voto a esta música!");
-            
+            if (v && v.length > 0) return alert("Já votaste!");
             await supabaseClient.from('votes').insert([{ song_id: id, user_id: MY_ID }]);
             const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
             await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
         }
 
-        initClient();
-        fetchQueue();
+        initClient(); fetchQueue();
         supabaseClient.channel('q_client').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
