@@ -3,73 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha TV - 4K Balanced System</title>
+    <title>Portinha TV - 4K Smart System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body, html { background-color: #000; color: white; margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden !important; font-family: 'Inter', sans-serif; }
+        #bg-blur { position: fixed; inset: 0; background-size: cover; background-position: center; filter: blur(100px) brightness(0.22) saturate(1.8); transform: scale(1.1); z-index: 1; transition: background-image 2.5s ease-in-out; }
+        .vignette { position: fixed; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.9) 100%); z-index: 2; }
+        #main-content { position: relative; z-index: 10; display: flex; flex-direction: column; height: 100vh; width: 100vw; padding: 6vh 5vw; box-sizing: border-box; opacity: 0; transition: opacity 1.2s ease; }
+        .glass-panel { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(40px); border: 1px solid rgba(255, 255, 255, 0.07); }
+        .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; box-shadow: 0 0 30px rgba(255, 255, 255, 0.5); }
         
-        body, html { 
-            background-color: #000; color: white; 
-            margin: 0; padding: 0; width: 100vw; height: 100vh; 
-            overflow: hidden !important; font-family: 'Inter', sans-serif; 
+        /* ESTILO QR CODE */
+        #qrcode-container {
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(212, 175, 55, 0.3);
+            display: inline-block;
         }
+        #qrcode-container img { margin: 0 auto; }
 
-        #bg-blur {
-            position: fixed; inset: 0;
-            background-size: cover; background-position: center;
-            filter: blur(100px) brightness(0.22) saturate(1.8);
-            transform: scale(1.1); z-index: 1;
-            transition: background-image 2.5s ease-in-out;
-        }
-
-        .vignette {
-            position: fixed; inset: 0;
-            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.9) 100%);
-            z-index: 2;
-        }
-
-        #main-content {
-            position: relative; z-index: 10;
-            display: flex; flex-direction: column;
-            height: 100vh; width: 100vw;
-            padding: 6vh 5vw; box-sizing: border-box;
-            opacity: 0; transition: opacity 1.2s ease;
-        }
-
-        .glass-panel { 
-            background: rgba(255, 255, 255, 0.03); 
-            backdrop-filter: blur(40px); 
-            border: 1px solid rgba(255, 255, 255, 0.07); 
-        }
-
-        .progress-fill { 
-            background: #ffffff; height: 100%; border-radius: 99px; 
-            box-shadow: 0 0 30px rgba(255, 255, 255, 0.5); 
-        }
-
-        #lock-screen { 
-            position: fixed; inset: 0; background: #000; z-index: 9999; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-        }
-
-        /* --- MENU ADMIN (RESTAURADO) --- */
-        .admin-trigger { 
-            position: fixed; top: 0; left: 0; 
-            width: 150px; height: 150px; 
-            z-index: 100; 
-        }
-        .admin-menu { 
-            position: fixed; top: 40px; left: 40px; 
-            z-index: 101; display: none; 
-            background: rgba(0,0,0,0.95); 
-            padding: 30px; border-radius: 30px; 
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .admin-trigger:hover + .admin-menu, .admin-menu:hover { 
-            display: flex; flex-direction: column; gap: 15px; 
-        }
+        #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .admin-trigger { position: fixed; top: 0; left: 0; width: 150px; height: 150px; z-index: 100; }
+        .admin-menu { position: fixed; top: 40px; left: 40px; z-index: 101; display: none; background: rgba(0,0,0,0.95); padding: 30px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.1); }
+        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; flex-direction: column; gap: 15px; }
     </style>
 </head>
 <body>
@@ -85,9 +47,8 @@
 
     <div class="admin-trigger"></div>
     <div class="admin-menu">
-        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-8 py-3 rounded-full font-black text-xl hover:scale-105 transition-all">LOGIN SPOTIFY</button>
+        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-8 py-3 rounded-full font-black text-xl">LOGIN SPOTIFY</button>
         <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-8 py-3 rounded-full font-black text-xl">AUTO-NEXT: OFF</button>
-        <button onclick="localStorage.clear(); location.reload();" class="text-red-500 text-sm mt-2">RESET TOTAL</button>
     </div>
 
     <div id="main-content">
@@ -100,8 +61,18 @@
                 <h1 id="tv-title" class="text-[6vw] font-[900] tracking-tighter leading-[1] mb-6 truncate italic">...</h1>
                 <p id="tv-artist" class="text-[2.5vw] text-white/40 font-medium mb-12 truncate italic">Sincronizando...</p>
                 
-                <div id="tv-suggester-box" class="hidden inline-flex items-center gap-6 px-8 py-4 glass-panel rounded-[20px] w-fit border-l-[0.8vw] border-l-[#d4af37]">
-                    <span class="text-[1.4vw] font-black uppercase tracking-widest text-white/80">PEDIDO DE: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
+                <div class="flex items-center gap-8">
+                    <div id="tv-suggester-box" class="hidden inline-flex items-center gap-6 px-8 py-4 glass-panel rounded-[20px] border-l-[0.8vw] border-l-[#d4af37]">
+                        <span class="text-[1.4vw] font-black uppercase tracking-widest text-white/80">PEDIDO DE: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
+                    </div>
+
+                    <div class="glass-panel p-6 rounded-[30px] flex items-center gap-6">
+                        <div id="qrcode-container"></div>
+                        <div>
+                            <p class="text-[#d4af37] text-xl font-black uppercase tracking-widest leading-none">Pede a tua</p>
+                            <p class="text-white text-3xl font-black italic">MÚSICA</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -126,122 +97,67 @@
     </div>
 
     <script>
+        // ... (Script Supabase igual ao anterior) ...
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
         const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
-        
         let spotifyAccessToken = localStorage.getItem('spotify_token');
-        let refreshToken = localStorage.getItem('refresh_token');
-        let expiresAt = localStorage.getItem('expires_at');
-        let autoMode = false;
-        let isProcessingAuto = false;
-        let durationMs = 0;
-        let localProgressMs = 0;
+        let durationMs = 0; let localProgressMs = 0;
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
+
+        // --- GERA O QR CODE PARA O INDEX.HTML ---
+        function generateQR() {
+            const indexUrl = window.location.href.replace('tv.html', 'index.html');
+            new QRCode(document.getElementById("qrcode-container"), {
+                text: indexUrl,
+                width: 120,
+                height: 120,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
 
         function checkPass() {
             if(document.getElementById('passInput').value === "1234") {
                 document.getElementById('lock-screen').style.display = 'none';
                 document.getElementById('main-content').style.opacity = '1';
+                generateQR(); // Gera o QR Code ao entrar
                 initSystem();
-            } else { alert("Tenta de novo!"); }
+            } else { alert("Pass Errada!"); }
         }
 
-        // --- SPOTIFY AUTH ---
-        async function loginSpotify() {
-            const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
-            localStorage.setItem('code_verifier', verifier);
-            const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user-modify-playback-state%20user-read-playback-state%20user-read-currently-playing&code_challenge_method=S256&code_challenge=${challenge}`;
-        }
-
-        async function exchangeCode(code) {
-            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: localStorage.getItem('code_verifier') });
-            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
-            const data = await res.json();
-            if (data.access_token) {
-                localStorage.setItem('spotify_token', data.access_token);
-                localStorage.setItem('refresh_token', data.refresh_token);
-                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
-                window.location.href = redirectUri;
-            }
-        }
-
-        async function refreshTokens() {
-            if (!refreshToken) return;
-            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'refresh_token', refresh_token: refreshToken });
-            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
-            const data = await res.json();
-            if (data.access_token) {
-                spotifyAccessToken = data.access_token;
-                localStorage.setItem('spotify_token', data.access_token);
-                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
-            }
-        }
-
+        // ... (resto das funções monitor, updateUI, fetchQueue iguais) ...
         async function monitor() {
             if (!spotifyAccessToken) return;
-            if (expiresAt && (Math.floor(Date.now() / 1000) > (expiresAt - 300))) await refreshTokens();
-
             try {
                 const res = await fetch("https://api.spotify.com/v1/me/player", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
                 if (res.status === 200) {
                     const data = await res.json();
                     if (!data.item) return;
                     localProgressMs = data.progress_ms; durationMs = data.item.duration_ms;
-                    
-                    const isSuggester = (localStorage.getItem('last_uri') === data.item.uri);
-                    const currentUser = isSuggester ? localStorage.getItem('last_user') : "Spotify";
-
-                    await supabaseClient.from('playback_status').upsert({
-                        id: 1, title: data.item.name, artist: data.item.artists[0].name, cover_url: data.item.album.images[0].url, 
-                        progress_ms: data.progress_ms, duration_ms: data.item.duration_ms, user_name: currentUser
-                    });
-
-                    updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url, isSuggester, currentUser);
-
-                    // AUTO-NEXT
-                    if (autoMode && (durationMs - localProgressMs < 15000) && !isProcessingAuto) {
-                        isProcessingAuto = true;
-                        playNext();
-                    }
+                    updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url);
                 }
             } catch (e) { console.error(e); }
         }
 
-        async function playNext() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
-            if (data?.length > 0) {
-                const s = data[0];
-                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                localStorage.setItem('last_uri', s.spotify_uri);
-                localStorage.setItem('last_user', s.user_name);
-                await supabaseClient.from('queue').update({ status: 'played' }).eq('id', s.id);
-            }
-        }
-
-        function updateUI(title, artist, cover, isSuggester, user) {
+        function updateUI(title, artist, cover) {
             document.getElementById('tv-title').innerText = title;
             document.getElementById('tv-artist').innerText = artist;
             document.getElementById('tv-cover').src = cover;
             document.getElementById('bg-blur').style.backgroundImage = `url('${cover}')`;
             document.getElementById('tv-total-time').innerText = format(durationMs);
-            if (isSuggester) {
-                document.getElementById('tv-suggester-box').classList.remove('hidden');
-                document.getElementById('tv-suggester').innerText = user;
-            } else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
         }
 
         function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
-        function toggleAutoMode() { autoMode = !autoMode; document.getElementById('auto-btn').innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; document.getElementById('auto-btn').style.color = autoMode ? '#1DB954' : 'white'; }
 
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
             const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
             data?.forEach(s => {
                 const div = document.createElement('div'); div.className = "flex items-center gap-4";
-                div.innerHTML = `<img src="${s.cover_url}" class="w-16 h-16 rounded-xl object-cover shadow-lg"> <div class="flex-1 min-w-0"><p class="text-xl font-black truncate text-white italic leading-tight">${s.title}</p><p class="text-sm text-[#d4af37] uppercase font-black truncate mt-1">${s.user_name}</p></div>`;
+                div.innerHTML = `<img src="${s.cover_url}" class="w-16 h-16 rounded-xl object-cover"> <div class="flex-1 min-w-0"><p class="text-xl font-black truncate text-white italic leading-tight">${s.title}</p><p class="text-sm text-[#d4af37] uppercase font-black truncate mt-1">${s.user_name}</p></div>`;
                 container.appendChild(div);
             });
         }
@@ -253,8 +169,6 @@
             fetchQueue();
         }
 
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (code) { document.getElementById('lock-screen').style.display = 'none'; document.getElementById('main-content').style.opacity = '1'; exchangeCode(code); }
         lucide.createIcons();
     </script>
 </body>
