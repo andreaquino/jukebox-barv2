@@ -56,7 +56,6 @@
              oncontextmenu="return false;"
              onmousedown="startAdminTimer(event)" onmouseup="clearAdminTimer()"
              ontouchstart="startAdminTimer(event)" ontouchend="clearAdminTimer()">
-       
     </footer>
 
     <script>
@@ -72,9 +71,7 @@
 
         // --- MODO VETO MELHORADO PARA MOBILE ---
         function startAdminTimer(e) {
-            // Limpa qualquer timer anterior
             clearTimeout(adminTimer);
-            
             adminTimer = setTimeout(() => {
                 const p = prompt("Admin Pass:");
                 if(p === "1234") {
@@ -83,7 +80,7 @@
                     fetchQueue();
                     alert(adminMode ? "Modo Veto ATIVO 🔨" : "Modo Veto Desativado");
                 }
-            }, 3000); // 3 Segundos pressionado
+            }, 3000);
         }
 
         function clearAdminTimer() {
@@ -97,7 +94,6 @@
             }
         }
 
-        // --- SINCRO COM TV ---
         async function initSync() {
             const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
             if (data) updateUI(data);
@@ -112,7 +108,6 @@
             document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
         }
 
-        // --- PESQUISA ---
         async function getSpotifyToken() {
             if (cachedToken) return cachedToken;
             const res = await fetch('https://accounts.spotify.com/api/token', { 
@@ -126,26 +121,40 @@
 
         let sTimer;
         function debounceSearch() {
-            const q = document.getElementById('searchInput').value;
-            if(q.length < 2) { document.getElementById('search-results').innerHTML = ""; return; }
+            const qOriginal = document.getElementById('searchInput').value;
+            if(qOriginal.length < 2) { document.getElementById('search-results').innerHTML = ""; return; }
             clearTimeout(sTimer);
             sTimer = setTimeout(async () => {
+                // --- CONFIGURAÇÃO DE CURADORIA ---
+                const blacklist = " -genre:funk-brazil -genre:sertanejo -genre:sertanejo-universitario -genre:axe -genre:pagode -genre:brega-funk -genre:forro -genre:pimba -genre:folk-portugues ";
+                const finalQuery = qOriginal + blacklist;
+                
                 const token = await getSpotifyToken();
-                const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=5`, { headers: { 'Authorization': 'Bearer ' + token } });
-                const data = await res.json();
-                const results = document.getElementById('search-results'); results.innerHTML = "";
-                data.tracks.items.forEach(song => {
-                    const div = document.createElement('div');
-                    div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all";
-                    div.onclick = () => addToQueue(song);
-                    div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
-                    results.appendChild(div);
-                });
-                lucide.createIcons();
+                try {
+                    const res = await fetch(`https://api.spotify.com/v1/search?q=$${encodeURIComponent(finalQuery)}&type=track&limit=5`, { 
+                        headers: { 'Authorization': 'Bearer ' + token } 
+                    });
+                    const data = await res.json();
+                    const results = document.getElementById('search-results'); 
+                    results.innerHTML = "";
+
+                    if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
+                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic text-sm'>Nenhum resultado encontrado 🍷</p>";
+                        return;
+                    }
+
+                    data.tracks.items.forEach(song => {
+                        const div = document.createElement('div');
+                        div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
+                        div.onclick = () => addToQueue(song);
+                        div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
+                        results.appendChild(div);
+                    });
+                    lucide.createIcons();
+                } catch(e) { console.error("Erro pesquisa:", e); }
             }, 300);
         }
 
-        // --- ADICIONAR (REGRAS 10 MIN + ID) ---
         async function addToQueue(song) {
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
             const { data: recent } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).gte('created_at', tenMinutesAgo);
@@ -164,7 +173,6 @@
             alert("Enviada! 🍷");
         }
 
-        // --- FILA ---
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(10);
             const container = document.getElementById('queue-list'); container.innerHTML = "";
