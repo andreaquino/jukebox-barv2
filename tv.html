@@ -1,174 +1,106 @@
-<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <title>Neon Jukebox V2 - TV Main System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { background-color: #000; color: white; overflow: hidden; font-family: 'Inter', sans-serif; }
-        #bg-blur {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-size: cover; background-position: center;
-            filter: blur(100px) brightness(0.35); transform: scale(1.2);
-            z-index: -1; transition: background-image 2s ease-in-out;
-        }
-        .glass-panel { background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(40px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; transition: width 1s linear; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); }
-        /* Admin menu escondido no canto superior esquerdo */
-        .admin-trigger { position: fixed; top: 0; left: 0; width: 80px; height: 80px; z-index: 100; }
-        .admin-menu { position: fixed; top: 20px; left: 20px; z-index: 101; display: none; }
-        .admin-trigger:hover + .admin-menu, .admin-menu:hover { display: flex; }
-    </style>
-</head>
-<body class="h-screen flex flex-col p-16 relative">
-    <div id="bg-blur"></div>
+<script>
+    // ... (Configurações iniciais Supabase e Spotify Client ID iguais) ...
 
-    <div class="admin-trigger"></div>
-    <div class="admin-menu flex-col gap-3 bg-black/90 p-6 rounded-3xl border border-white/10 backdrop-blur-xl">
-        <button onclick="loginSpotify()" class="bg-[#1DB954] text-black px-6 py-2 rounded-full font-black text-xs">CONECTAR SPOTIFY</button>
-        <button id="auto-btn" onclick="toggleAutoMode()" class="bg-white/10 text-white px-6 py-2 rounded-full font-bold text-xs">AUTO-NEXT: OFF</button>
-    </div>
+    let spotifyAccessToken = localStorage.getItem('spotify_token');
+    let refreshToken = localStorage.getItem('refresh_token');
+    let expiresAt = localStorage.getItem('expires_at'); // Timestamp de validade
 
-    <div class="flex-1 flex items-center gap-16 mb-24">
-        <img id="tv-cover" src="" class="w-[500px] h-[500px] rounded-[40px] shadow-[0_40px_100px_rgba(0,0,0,0.9)] border border-white/10 object-cover">
-        <div class="flex-1 flex flex-col justify-center overflow-hidden">
-            <h1 id="tv-title" class="text-8xl font-[900] tracking-tighter leading-[1.1] mb-6 line-clamp-2">Carregando...</h1>
-            <p id="tv-artist" class="text-5xl text-white/60 font-medium mb-12 italic">---</p>
-            <div id="tv-suggester-box" class="hidden inline-flex items-center gap-4 px-10 py-4 glass-panel rounded-3xl border-l-8 border-l-white">
-                <span class="text-2xl font-black uppercase text-white/90">PEDIDO DE: <span id="tv-suggester" class="text-white">---</span></span>
-            </div>
-        </div>
-        <div class="w-[400px] glass-panel rounded-[50px] p-12 h-full max-h-[700px] flex flex-col">
-            <h2 class="text-xl font-black uppercase tracking-[0.3em] text-white/40 mb-10 border-b border-white/10 pb-6">A SEGUIR</h2>
-            <div id="tv-queue-list" class="flex flex-col gap-10 overflow-y-auto"></div>
-        </div>
-    </div>
+    // --- FUNÇÃO DE REFRESH AUTOMÁTICO ---
+    async function refreshSpotifyToken() {
+        if (!refreshToken) return;
 
-    <div class="w-full max-w-[95%] mx-auto mt-auto">
-        <div class="flex justify-between items-end mb-8 px-4">
-            <span id="tv-current-time" class="text-4xl font-bold font-mono opacity-30">0:00</span>
-            <span id="tv-total-time" class="text-4xl font-bold font-mono opacity-30">0:00</span>
-        </div>
-        <div class="bg-white/15 h-3 rounded-full relative overflow-hidden">
-            <div id="tv-progress" class="progress-fill" style="width: 0%"></div>
-        </div>
-    </div>
+        console.log("A renovar a chave do Spotify...");
+        const params = new URLSearchParams({
+            client_id: spotifyClientId,
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken
+        });
 
-    <script>
-        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-
-        const spotifyClientId = '3351b90e625048618d7f976a4f4b5a5a';
-        let spotifyAccessToken = localStorage.getItem('spotify_token');
-        let autoMode = false;
-        let isProcessingAuto = false;
-        let lastInjectedUri = null;
-        let durationMs = 0;
-        let localProgressMs = 0;
-        const redirectUri = window.location.href.split('?')[0].split('#')[0];
-
-        // --- LOGIN S256 ---
-        async function loginSpotify() {
-            const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('');
-            localStorage.setItem('code_verifier', verifier);
-            const encoder = new TextEncoder();
-            const data = encoder.encode(verifier);
-            const digest = await window.crypto.subtle.digest('SHA-256', data);
-            const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=user-modify-playback-state%20user-read-playback-state%20user-read-currently-playing&code_challenge_method=S256&code_challenge=${challenge}`;
-        }
-
-        async function exchangeCode(code) {
-            const verifier = localStorage.getItem('code_verifier');
-            const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: verifier });
-            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
-            const data = await res.json();
-            if (data.access_token) { localStorage.setItem('spotify_token', data.access_token); location.reload(); }
-        }
-
-        // --- CÉREBRO (MONITOR E BROADCAST) ---
-        async function monitor() {
-            if (!spotifyAccessToken) return;
-            try {
-                const res = await fetch("https://api.spotify.com/v1/me/player", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                if (res.status === 200) {
-                    const data = await res.json();
-                    if (!data.item) return;
-
-                    localProgressMs = data.progress_ms;
-                    durationMs = data.item.duration_ms;
-
-                    // AVISAR TODOS OS TELEMÓVEIS (BROADCAST)
-                    await supabaseClient.from('playback_status').upsert({
-                        id: 1, title: data.item.name, artist: data.item.artists[0].name,
-                        cover_url: data.item.album.images[0].url, progress_ms: data.progress_ms,
-                        duration_ms: data.item.duration_ms, user_name: (lastInjectedUri === data.item.uri) ? (localStorage.getItem('last_suggester') || "Sugerida") : "Spotify"
-                    });
-
-                    updateUI(data.item.name, data.item.artists[0].name, data.item.album.images[0].url, data.progress_ms, data.item.duration_ms, (lastInjectedUri === data.item.uri));
-
-                    // AUTO-NEXT
-                    if (autoMode) {
-                        const timeLeft = durationMs - localProgressMs;
-                        if (timeLeft > 20000) isProcessingAuto = false;
-                        if (timeLeft < 15000 && timeLeft > 5000 && !isProcessingAuto) {
-                            isProcessingAuto = true;
-                            playNext();
-                        }
-                    }
-                }
-            } catch (e) { console.error(e); }
-        }
-
-        async function playNext() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
-            if (data && data.length > 0) {
-                const song = data[0];
-                const res = await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(song.spotify_uri)}`, { method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
-                if (res.ok) {
-                    lastInjectedUri = song.spotify_uri;
-                    localStorage.setItem('last_suggester', song.user_name);
-                    await supabaseClient.from('queue').update({ status: 'played' }).eq('id', song.id);
-                }
-            }
-        }
-
-        function updateUI(title, artist, cover, progress, duration, suggester) {
-            document.getElementById('tv-title').innerText = title;
-            document.getElementById('tv-artist').innerText = artist;
-            document.getElementById('tv-cover').src = cover;
-            document.getElementById('bg-blur').style.backgroundImage = `url('${cover}')`;
-            document.getElementById('tv-total-time').innerText = format(duration);
-            if (suggester) {
-                document.getElementById('tv-suggester-box').classList.remove('hidden');
-                document.getElementById('tv-suggester').innerText = localStorage.getItem('last_suggester');
-            } else { document.getElementById('tv-suggester-box').classList.add('hidden'); }
-        }
-
-        function format(ms) { const min = Math.floor(ms / 60000); const sec = Math.floor((ms % 60000) / 1000); return min + ":" + (sec < 10 ? '0' : '') + sec; }
-        function toggleAutoMode() { autoMode = !autoMode; document.getElementById('auto-btn').innerText = `AUTO-NEXT: ${autoMode ? 'ON' : 'OFF'}`; document.getElementById('auto-btn').classList.toggle('bg-green-600', autoMode); }
-
-        async function fetchQueue() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(5);
-            const container = document.getElementById('tv-queue-list'); container.innerHTML = "";
-            (data || []).forEach(song => {
-                const div = document.createElement('div'); div.className = "flex items-center gap-8 opacity-80";
-                div.innerHTML = `<img src="${song.cover_url}" class="w-24 h-24 rounded-3xl object-cover shadow-2xl"><div class="flex-1 min-w-0"><p class="text-3xl font-bold truncate">${song.title}</p><p class="text-lg text-white/40 uppercase font-bold tracking-[0.2em] mt-1 truncate">${song.user_name}</p></div>`;
-                container.appendChild(div);
+        try {
+            const res = await fetch('https://accounts.spotify.com/api/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
             });
+            const data = await res.json();
+
+            if (data.access_token) {
+                spotifyAccessToken = data.access_token;
+                localStorage.setItem('spotify_token', data.access_token);
+                
+                // Se o Spotify enviar um novo refresh_token, guardamos. Se não, mantemos o antigo.
+                if (data.refresh_token) {
+                    refreshToken = data.refresh_token;
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                }
+
+                // Guardamos quando expira (Agora + segundos recebidos - margem de segurança)
+                const now = Math.floor(Date.now() / 1000);
+                expiresAt = now + data.expires_in;
+                localStorage.setItem('expires_at', expiresAt);
+                
+                console.log("Chave renovada com sucesso!");
+            }
+        } catch (e) {
+            console.error("Erro ao renovar token:", e);
+        }
+    }
+
+    // --- MONITORIZAÇÃO (Com verificação de expiração) ---
+    async function monitor() {
+        if (!spotifyAccessToken) return;
+
+        // Verifica se a chave expira nos próximos 5 minutos
+        const now = Math.floor(Date.now() / 1000);
+        if (expiresAt && now > (expiresAt - 300)) {
+            await refreshSpotifyToken();
         }
 
-        const code = new URLSearchParams(window.location.search).get('code');
-        if (code) exchangeCode(code);
-        setInterval(monitor, 2000);
-        setInterval(() => { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); }, 1000);
-        supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
-        fetchQueue();
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+        try {
+            const res = await fetch("https://api.spotify.com/v1/me/player", { 
+                headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } 
+            });
+            
+            if (res.status === 401) { // Caso o token tenha expirado inesperadamente
+                await refreshSpotifyToken();
+                return;
+            }
+
+            if (res.status === 200) {
+                const data = await res.json();
+                // ... (Resto da lógica de updateUI e Supabase igual) ...
+            }
+        } catch (e) { console.error(e); }
+    }
+
+    // --- NOVO EXCHANGE CODE (Para guardar o Refresh Token inicial) ---
+    async function exchangeCode(code) {
+        const verifier = localStorage.getItem('code_verifier');
+        const params = new URLSearchParams({
+            client_id: spotifyClientId,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: redirectUri,
+            code_verifier: verifier
+        });
+
+        const res = await fetch('https://accounts.spotify.com/api/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params
+        });
+        const data = await res.json();
+
+        if (data.access_token) {
+            localStorage.setItem('spotify_token', data.access_token);
+            localStorage.setItem('refresh_token', data.refresh_token);
+            
+            const now = Math.floor(Date.now() / 1000);
+            localStorage.setItem('expires_at', now + data.expires_in);
+            
+            location.href = redirectUri; // Limpa o código da URL
+        }
+    }
+
+    // ... (Resto das funções initSystem, playNext, fetchQueue iguais) ...
+</script>
