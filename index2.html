@@ -50,7 +50,6 @@
     </footer>
 
     <script>
-        // NOMES DE VARIÁVEIS ÚNICOS PARA EVITAR "ALREADY DECLARED"
         const SUPA_CLIENT_URL = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const SUPA_CLIENT_KEY = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const sClient = window.supabase.createClient(SUPA_CLIENT_URL, SUPA_CLIENT_KEY);
@@ -58,9 +57,8 @@
         const JUKE_USER = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', JUKE_USER);
 
-        // LINKS REAIS DO SPOTIFY (BASE64 VERDADEIRO)
         const AUTH_PATH = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
-        const API_PATH = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
+        const API_PATH  = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
         let currentToken = null;
 
         async function getAuth() {
@@ -74,58 +72,107 @@
             return (currentToken = d.access_token);
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        //  FILTRO — 4 camadas, funciona 100% com Client Credentials
+        //  (sem nenhuma chamada extra à API do Spotify)
+        // ─────────────────────────────────────────────────────────────────
+
+        // CAMADA 1 — Palavras proibidas no TÍTULO da música
+        const BANNED_TITLE_WORDS = [
+            "pimba","sertanejo","pagode","arrocha","pisadinha",
+            "forro","forró","brega","reggaeton","regueton",
+            "funk","mtg","phonk","baile funk","passinho","tamborzão",
+            "axé","axe"
+        ];
+
+        // CAMADA 2 — Padrões no NOME DO ARTISTA (regex)
+        const BANNED_ARTIST_PATTERNS = [
+            /^mc\s/i,       // começa com "MC "
+            /\bmc\b/i,      // contém "MC" como palavra isolada
+            /^dj\s/i,       // começa com "DJ "
+        ];
+
+        // CAMADA 3 — Lista negra de artistas (nome exato em lowercase)
+        const BANNED_ARTISTS = new Set([
+            // Pimba PT
+            "quim barreiros","edgar domingues","toni carreira","tony carreira",
+            "vitorino","grupo académico de coimbra","zé da viola",
+            "augusto monti","paulo de carvalho","fernando de carvalho",
+            // Funk BR
+            "mc kevinho","mc joão","mc livinho","mc fioti","mc don juan",
+            "mc g15","mc binn","mc davi","mc ryan sp","mc cabelinho",
+            "mc poze do rodo","mc maneirinho","mc hariel","mc nd",
+            "mc neguinho do kaxeta","mc pedrinho","mc rick","mc rodolfinho",
+            // Sertanejo / Pagode BR
+            "anitta","gusttavo lima","jorge & mateus","henrique & juliano",
+            "maiara & maraísa","simone & simaria","marília mendonça",
+            "zé neto & cristiano","humberto & ronaldo","fernando & sorocaba",
+            "joão neto & frederico","matheus & kauan","pedro & thiago",
+            "luan santana","michel teló","wesley safadão","léo santana",
+            "xand avião","bell marques","claudinho e buchecha","thiaguinho",
+            "seu jorge","belo","exaltasamba","pagodart","dilsinho",
+            "ferrugem","mumuzinho","sorriso maroto","grupo revelação",
+            // Reggaeton / Latin trap
+            "bad bunny","j balvin","maluma","ozuna","daddy yankee",
+            "anuel aa","karol g","rauw alejandro","myke towers",
+            "farruko","sech","lunay","jhay cortez","nicky jam",
+            "don omar","wisin & yandel","wisin","yandel","pitbull",
+            "feid","paulo londra",
+        ]);
+
+        // CAMADA 4 — Palavras no NOME DO ARTISTA que denunciam o género
+        const BANNED_ARTIST_WORDS = [
+            "sertanejo","pagode","axé","forró","pisadinha","reggaeton","regueton",
+        ];
+
+        // Excepções — passam sempre independentemente das outras camadas
+        const ALWAYS_ALLOW = [
+            "nirvana","chemical brothers","radiohead","the cure","the prodigy",
+            "dj shadow","dj krush","dj shadow","dj premier",  // DJs de boa reputação
+        ];
+
+        function isBanned(track) {
+            const title  = track.name.toLowerCase();
+            const artist = track.artists[0].name.toLowerCase();
+
+            // Excepções explícitas
+            if (ALWAYS_ALLOW.some(a => artist.includes(a))) return false;
+
+            // Camada 1 — título
+            if (BANNED_TITLE_WORDS.some(w => title.includes(w))) return true;
+
+            // Camada 2 — padrões no artista
+            if (BANNED_ARTIST_PATTERNS.some(r => r.test(artist))) return true;
+
+            // Camada 3 — lista negra exacta
+            if (BANNED_ARTISTS.has(artist)) return true;
+
+            // Camada 4 — palavras no nome do artista
+            if (BANNED_ARTIST_WORDS.some(w => artist.includes(w))) return true;
+
+            return false;
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+
         let sTimer;
         function debounceSearch() {
             const val = document.getElementById('searchInput').value;
             const resDiv = document.getElementById('search-results');
-            if(val.length < 3) { resDiv.innerHTML = ""; return; }
+            if (val.length < 3) { resDiv.innerHTML = ""; return; }
             
             clearTimeout(sTimer);
             sTimer = setTimeout(async () => {
                 const token = await getAuth();
                 try {
-                    // PESQUISA COM LIMITE DE 10
-                    const sRes = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=10&market=PT`, {
+                    // Pede 20 resultados para ter margem após filtrar
+                    const sRes = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=20&market=PT`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     const sData = await sRes.json();
                     if (!sData.tracks || !sData.tracks.items.length) return;
 
-                    // DEDUPLICAR IDS PARA EVITAR ERRO 403
-                    const artistIds = [...new Set(sData.tracks.items.map(t => t.artists[0].id))].filter(id => id).join(',');
-                    
-                    let gMap = {};
-                    if (artistIds) {
-                        const aRes = await fetch(`${API_PATH}/artists?ids=${artistIds}`, {
-                            headers: { 'Authorization': 'Bearer ' + token }
-                        });
-                        if (aRes.ok) {
-                            const aData = await aRes.json();
-                            (aData.artists || []).forEach(a => { 
-                                if(a) gMap[a.id] = (a.genres || []).join(" ").toLowerCase(); 
-                            });
-                        }
-                    }
-
-                    // A BLACKLIST DE SEGURANÇA (GÉNEROS E PALAVRAS NO TÍTULO)
-                    const forbidden = ["funk", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha", "forro", "brega", "reggaeton", "pop nacional", "axe", "mtg"];
-                    
-                    const filtered = sData.tracks.items.filter(t => {
-                        const aName = t.artists[0].name.toLowerCase();
-                        const tName = t.name.toLowerCase();
-                        const genres = gMap[t.artists[0].id] || "";
-                        
-                        // Bloqueia se tiver "MC" ou "DJ" no nome
-                        const isBadName = aName.startsWith("mc ") || aName.includes(" mc ") || aName.startsWith("dj ");
-                        
-                        // Bloqueia se o género OU o título tiverem palavras proibidas
-                        const isBadVibe = forbidden.some(word => genres.includes(word) || tName.includes(word));
-
-                        // Exceções (Nirvana e Chemical Brothers passam sempre)
-                        if (aName.includes("nirvana") || aName.includes("chemical brothers")) return true;
-
-                        return !isBadName && !isBadVibe;
-                    });
+                    const filtered = sData.tracks.items.filter(t => !isBanned(t));
 
                     resDiv.innerHTML = "";
                     if (!filtered.length) {
@@ -137,7 +184,13 @@
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer mb-2";
                         div.onclick = () => addSong(song);
-                        div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
+                        div.innerHTML = `
+                            <img src="${song.album.images[2]?.url || song.album.images[0]?.url}" class="w-12 h-12 rounded-lg object-cover">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-bold text-white text-sm truncate">${song.name}</p>
+                                <p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p>
+                            </div>
+                            <i data-lucide="plus" class="text-[#d4af37] flex-shrink-0"></i>`;
                         resDiv.appendChild(div);
                     });
                     lucide.createIcons();
@@ -147,10 +200,15 @@
 
         async function addSong(song) {
             const n = prompt("Qual o teu nome?");
-            if(!n) return;
+            if (!n) return;
             await sClient.from('queue').insert([{ 
-                title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
-                spotify_uri: song.uri, user_name: n.substring(0,15), user_id: JUKE_USER, status: 'pending', votes: 0 
+                title: song.name, artist: song.artists[0].name,
+                cover_url: song.album.images[0].url, 
+                spotify_uri: song.uri,
+                user_name: n.substring(0, 15),
+                user_id: JUKE_USER,
+                status: 'pending',
+                votes: 0 
             }]);
             alert("Na fila! 🤘");
             document.getElementById('searchInput').value = "";
@@ -164,7 +222,13 @@
             (data || []).forEach(s => {
                 const div = document.createElement('div');
                 div.className = "flex items-center gap-4 wood-panel p-4 mb-2";
-                div.innerHTML = `<img src="${s.cover_url}" class="w-12 h-12 rounded-lg"><div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${s.title}</p><p class="text-xs text-[#d4af37]">${s.user_name}</p></div><button onclick="voteSong('${s.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${s.votes}</button>`;
+                div.innerHTML = `
+                    <img src="${s.cover_url}" class="w-12 h-12 rounded-lg object-cover">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-white text-sm truncate">${s.title}</p>
+                        <p class="text-xs text-[#d4af37]">${s.user_name}</p>
+                    </div>
+                    <button onclick="voteSong('${s.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs flex-shrink-0">❤️ ${s.votes}</button>`;
                 list.appendChild(div);
             });
         }
