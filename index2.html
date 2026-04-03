@@ -59,6 +59,7 @@
     </footer>
 
     <script>
+        // CONFIGURAÇÕES SUPABASE E SPOTIFY
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -69,6 +70,7 @@
         let adminTimer;
         let cachedToken = null;
 
+        // MODO VETO (ADMIN)
         function startAdminTimer(e) {
             clearTimeout(adminTimer);
             adminTimer = setTimeout(() => {
@@ -91,6 +93,7 @@
             }
         }
 
+        // SINCRONIZAR A MÚSICA QUE ESTÁ A TOCAR (Vem da TV)
         async function initSync() {
             const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
             if (data) updateUI(data);
@@ -105,17 +108,22 @@
             document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
         }
 
+        // OBTER TOKEN DO SPOTIFY
         async function getSpotifyToken() {
             if (cachedToken) return cachedToken;
             const res = await fetch('https://accounts.spotify.com/api/token', { 
                 method: 'POST', 
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded', 
+                    'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') 
+                }, 
                 body: 'grant_type=client_credentials' 
             });
             const data = await res.json();
             return (cachedToken = data.access_token);
         }
 
+        // PESQUISA COM O "SEGURANÇA DE DUPLA FASE"
         let sTimer;
         function debounceSearch() {
             const q = document.getElementById('searchInput').value;
@@ -125,8 +133,8 @@
             sTimer = setTimeout(async () => {
                 const token = await getSpotifyToken();
                 try {
-                    // PASSO 1: Pesquisa normal de músicas
-                    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`, { 
+                    // PASSO 1: Pedir músicas normais ao Spotify
+                    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=15`, { 
                         headers: { 'Authorization': 'Bearer ' + token } 
                     });
                     const data = await res.json();
@@ -135,40 +143,48 @@
 
                     if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) return;
 
-                    // PASSO 2: Apanhar os IDs dos Artistas das músicas que o Spotify devolveu
-                    const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 10);
+                    // PASSO 2: Apanhar os IDs dos Artistas das músicas retornadas
+                    const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 15);
 
-                    // PASSO 3: Perguntar ao Spotify quais são as tags reais destes artistas
+                    // PASSO 3: Perguntar ao Spotify quais os géneros (tags) de cada artista
                     const artistRes = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds.join(',')}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     const artistData = await artistRes.json();
 
-                    // Criar um dicionário mental com as tags de cada artista (ex: id: "rock grunge alternative")
+                    // Criar um dicionário (id -> géneros)
                     const artistGenres = {};
                     artistData.artists.forEach(a => {
                         artistGenres[a.id] = a.genres.join(" ").toLowerCase();
                     });
 
-                    // AS VIBES PERMITIDAS NA PORTINHA (Podem ser palavras genéricas)
-                    const allowedVibes = ["rock", "metal", "grunge", "punk", "indie", "blues", "jazz", "folk", "alternative"];
+                    // A LISTA NEGRA DA PORTINHA 🚫
+                    const forbiddenVibes = [
+                        "sertanejo", "pimba", "funk carioca", "funk paulista", 
+                        "funk ostentacao", "pagode", "forro", "pisadinha", "brega",
+                        "reggaeton", "arrocha", "trap brasileiro", "k-pop", "funk mtg", "funk viral"
+                    ];
 
-                    // PASSO 4: Filtrar a lista - A música só passa se as tags do artista tiverem uma das palavras permitidas
+                    // SEGURANÇA EXTRA NO NOME
+                    const forbiddenNames = ["mc ", "dj ", "m.c."];
+
+                    // PASSO 4: Filtrar a lista (Deixar passar tudo exceto a Lista Negra)
                     const allowedTracks = data.tracks.items.filter(song => {
-                        const genresString = artistGenres[song.artists[0].id];
+                        const artistName = song.artists[0].name.toLowerCase();
+                        const genresString = artistGenres[song.artists[0].id] || ""; 
                         
-                        // Se o artista não tiver género nenhum atribuído, ou se tiver, verificamos se bate certo
-                        if (!genresString) return false; // Bloqueia artistas desconhecidos sem género
+                        const hasBadName = forbiddenNames.some(badName => artistName.includes(badName));
+                        const hasBadVibe = forbiddenVibes.some(badVibe => genresString.includes(badVibe));
                         
-                        return allowedVibes.some(vibe => genresString.includes(vibe));
+                        return !hasBadName && !hasBadVibe;
                     });
 
                     if (allowedTracks.length === 0 && data.tracks.items.length > 0) {
-                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não combina com a Portinha! Tenta Rock, Indie ou Jazz 🤘🍷</p>";
+                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>O Segurança não deixou essa passar... Tenta outra vibe! 🚫🍷</p>";
                         return;
                     }
 
-                    // PASSO 5: Mostrar as músicas aprovadas
+                    // PASSO 5: Mostrar resultados aprovados
                     allowedTracks.slice(0, 5).forEach(song => {
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
@@ -181,6 +197,7 @@
             }, 400);
         }
 
+        // ADICIONAR À FILA
         async function addToQueue(song) {
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
             const { data: recent } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).gte('created_at', tenMinutesAgo);
@@ -199,6 +216,7 @@
             alert("Enviada! 🤘🍷");
         }
 
+        // CARREGAR A FILA
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(10);
             const container = document.getElementById('queue-list'); container.innerHTML = "";
@@ -217,6 +235,7 @@
             lucide.createIcons();
         }
 
+        // DAR UM VOTO ❤️
         async function upvote(id) {
             const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
             if (v?.length > 0) return alert("Já votaste!");
