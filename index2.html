@@ -3,6 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portinha - Jukebox </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { 
+            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('bar_background_portinha.jpg'); 
+            background-size: cover; backgro<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portinha - Jukebox Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -13,6 +27,184 @@
             font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('bar_background_portinha.jpg'); 
             background-size: cover; background-position: center; background-attachment: fixed; background-color: #000;
+        }
+        .wood-panel { background: rgba(15, 7, 5, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 24px; }
+        .logo-gold-filter { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; }
+        .btn-gold { background: #d4af37; color: #000; font-weight: 900; }
+    </style>
+</head>
+<body class="p-4 flex flex-col items-center">
+
+    <header class="w-full max-w-lg mb-8 wood-panel p-5 border-l-4 border-[#d4af37]">
+        <div class="flex gap-4 items-center">
+            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover">
+            <div class="overflow-hidden flex-1">
+                <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
+                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
+                <p id="client-artist" class="text-white/50 text-sm italic">...</p>
+                <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%; transition: width 1s linear;"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-lg flex-1">
+        <div class="relative flex items-center mb-8">
+            <i data-lucide="search" class="absolute left-5 text-[#d4af37]/50 w-5 h-5"></i>
+            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música ou artista..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
+        </div>
+        <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
+        
+        <div class="flex justify-between items-center mb-6 px-2">
+            <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Fila da Taverna</h2>
+            <span id="admin-indicator" class="hidden text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">MODO VETO</span>
+        </div>
+        <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
+    </main>
+
+    <footer class="mt-10 mb-12 text-center">
+        <img src="logo.png" id="footer-logo" class="logo-gold-filter mb-3 mx-auto" onmousedown="startAdminTimer()" onmouseup="clearAdminTimer()">
+    </footer>
+
+    <script>
+        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
+        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('jukebox_user_id', MY_ID);
+
+        let adminMode = false;
+        let adminTimer;
+        let cachedToken = null;
+
+        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
+        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
+
+        async function getSpotifyToken() {
+            if (cachedToken) return cachedToken;
+            try {
+                const res = await fetch(AUTH_URL, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
+                    body: 'grant_type=client_credentials' 
+                });
+                const data = await res.json();
+                return (cachedToken = data.access_token);
+            } catch(e) { return null; }
+        }
+
+        let sTimer;
+        function debounceSearch() {
+            const q = document.getElementById('searchInput').value;
+            const results = document.getElementById('search-results'); 
+            if(q.length < 2) { results.innerHTML = ""; return; }
+            
+            clearTimeout(sTimer);
+            sTimer = setTimeout(async () => {
+                const token = await getSpotifyToken();
+                if (!token) return;
+
+                try {
+                    // Pesquisa simplificada com market PT para evitar erro 400
+                    const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, { 
+                        headers: { 'Authorization': 'Bearer ' + token } 
+                    });
+                    const data = await res.json();
+                    
+                    if (!data.tracks || !data.tracks.items.length) {
+                        results.innerHTML = "<p class='text-center p-4 text-white/50'>Sem resultados.</p>";
+                        return;
+                    }
+
+                    // Obter géneros para filtrar
+                    const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 10);
+                    const artistRes = await fetch(`${API_URL}/artists?ids=${artistIds.join(',')}`, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    const artistData = await artistRes.json();
+                    const artistGenres = {};
+                    artistData.artists.forEach(a => { artistGenres[a.id] = a.genres.join(" ").toLowerCase(); });
+
+                    const forbidden = ["sertanejo", "pimba", "funk carioca", "funk paulista", "pagode", "forro", "pisadinha", "brega", "reggaeton", "arrocha"];
+
+                    const filtered = data.tracks.items.filter(song => {
+                        const name = song.artists[0].name.toLowerCase();
+                        const genres = artistGenres[song.artists[0].id] || "";
+                        
+                        // Se for MC ou DJ de funk, bloqueia
+                        if (name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ")) {
+                            // Deixa passar DJs conhecidos (ex: Chemical Brothers não são DJs no nome)
+                            return false;
+                        }
+                        
+                        // Se tiver género proibido, bloqueia
+                        const isForbidden = forbidden.some(f => genres.includes(f));
+                        return !isForbidden;
+                    });
+
+                    results.innerHTML = "";
+                    if (filtered.length === 0) {
+                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra aqui! 🍷🚫</p>";
+                        return;
+                    }
+
+                    filtered.slice(0, 5).forEach(song => {
+                        const div = document.createElement('div');
+                        div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
+                        div.onclick = () => addToQueue(song);
+                        div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
+                        results.appendChild(div);
+                    });
+                    lucide.createIcons();
+                } catch(e) { console.error(e); }
+            }, 400);
+        }
+
+        async function addToQueue(song) {
+            let name = prompt("O teu nome?");
+            if(!name) return;
+            await supabaseClient.from('queue').insert([{ 
+                title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
+                spotify_uri: song.uri, user_name: name.substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
+            }]);
+            document.getElementById('searchInput').value = ""; results.innerHTML = "";
+            alert("Na fila! 🤘");
+        }
+
+        async function fetchQueue() {
+            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
+            const container = document.getElementById('queue-list'); container.innerHTML = "";
+            (data || []).forEach(song => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-4 wood-panel p-4";
+                div.innerHTML = `<img src="${song.cover_url}" class="w-12 h-12 rounded-lg"><div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.title}</p><p class="text-xs text-[#d4af37]">${song.user_name}</p></div><button onclick="upvote('${song.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${song.votes}</button>`;
+                container.appendChild(div);
+            });
+        }
+
+        async function upvote(id) {
+            const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
+            await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
+            fetchQueue();
+        }
+
+        async function initSync() {
+            const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
+            if (data) {
+                document.getElementById('client-title').innerText = data.title;
+                document.getElementById('client-artist').innerText = data.artist;
+                document.getElementById('client-cover').src = data.cover_url;
+                document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
+            }
+        }
+
+        initSync(); fetchQueue();
+        supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+        lucide.createIcons();
+    </script>
+</body>
+</html>und-position: center; background-attachment: fixed; background-color: #000;
             user-select: none;
         }
         .wood-panel { background: rgba(15, 7, 5, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 24px; }
