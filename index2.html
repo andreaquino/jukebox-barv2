@@ -59,7 +59,6 @@
     </footer>
 
     <script>
-        // CONFIGURAÇÕES SUPABASE E SPOTIFY
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
         const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
@@ -70,7 +69,6 @@
         let adminTimer;
         let cachedToken = null;
 
-        // MODO VETO (ADMIN)
         function startAdminTimer(e) {
             clearTimeout(adminTimer);
             adminTimer = setTimeout(() => {
@@ -93,7 +91,6 @@
             }
         }
 
-        // SINCRONIZAR A MÚSICA QUE ESTÁ A TOCAR (Vem da TV)
         async function initSync() {
             const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
             if (data) updateUI(data);
@@ -108,7 +105,6 @@
             document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
         }
 
-        // OBTER TOKEN DO SPOTIFY
         async function getSpotifyToken() {
             if (cachedToken) return cachedToken;
             const res = await fetch('https://accounts.spotify.com/api/token', { 
@@ -123,7 +119,6 @@
             return (cachedToken = data.access_token);
         }
 
-        // PESQUISA COM O "SEGURANÇA DE DUPLA FASE"
         let sTimer;
         function debounceSearch() {
             const q = document.getElementById('searchInput').value;
@@ -133,7 +128,7 @@
             sTimer = setTimeout(async () => {
                 const token = await getSpotifyToken();
                 try {
-                    // PASSO 1: Pedir músicas normais ao Spotify
+                    // PASSO 1: Pesquisa normal de músicas (LINK CORRIGIDO)
                     const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=15`, { 
                         headers: { 'Authorization': 'Bearer ' + token } 
                     });
@@ -146,13 +141,12 @@
                     // PASSO 2: Apanhar os IDs dos Artistas das músicas retornadas
                     const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 15);
 
-                    // PASSO 3: Perguntar ao Spotify quais os géneros (tags) de cada artista
+                    // PASSO 3: Perguntar ao Spotify quais os géneros (tags) de cada artista (LINK CORRIGIDO)
                     const artistRes = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds.join(',')}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     const artistData = await artistRes.json();
 
-                    // Criar um dicionário (id -> géneros)
                     const artistGenres = {};
                     artistData.artists.forEach(a => {
                         artistGenres[a.id] = a.genres.join(" ").toLowerCase();
@@ -168,7 +162,7 @@
                     // SEGURANÇA EXTRA NO NOME
                     const forbiddenNames = ["mc ", "dj ", "m.c."];
 
-                    // PASSO 4: Filtrar a lista (Deixar passar tudo exceto a Lista Negra)
+                    // PASSO 4: Filtrar a lista
                     const allowedTracks = data.tracks.items.filter(song => {
                         const artistName = song.artists[0].name.toLowerCase();
                         const genresString = artistGenres[song.artists[0].id] || ""; 
@@ -197,7 +191,6 @@
             }, 400);
         }
 
-        // ADICIONAR À FILA
         async function addToQueue(song) {
             const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
             const { data: recent } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).gte('created_at', tenMinutesAgo);
@@ -216,7 +209,6 @@
             alert("Enviada! 🤘🍷");
         }
 
-        // CARREGAR A FILA
         async function fetchQueue() {
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(10);
             const container = document.getElementById('queue-list'); container.innerHTML = "";
@@ -235,7 +227,6 @@
             lucide.createIcons();
         }
 
-        // DAR UM VOTO ❤️
         async function upvote(id) {
             const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
             if (v?.length > 0) return alert("Já votaste!");
