@@ -1,182 +1,70 @@
-<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Jukebox</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { 
-            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh;
-            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('bar_background_portinha.jpg'); 
-            background-size: cover; background-position: center; background-attachment: fixed; background-color: #000;
-        }
-        .wood-panel { background: rgba(15, 7, 5, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 24px; }
-        .logo-gold { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; }
-        .btn-gold { background: #d4af37; color: #000; font-weight: 900; }
-    </style>
-</head>
-<body class="p-4 flex flex-col items-center">
-
-    <header class="w-full max-w-lg mb-8 wood-panel p-5 border-l-4 border-[#d4af37]">
-        <div class="flex gap-4 items-center">
-            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover">
-            <div class="overflow-hidden flex-1">
-                <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
-                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
-                <p id="client-artist" class="text-white/50 text-sm italic">...</p>
-                <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-                    <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%;"></div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="w-full max-w-lg flex-1">
-        <div class="relative mb-8">
-            <i data-lucide="search" class="absolute left-5 top-5 text-[#d4af37]/50 w-5 h-5"></i>
-            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música ou artista..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
-        </div>
-        <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
-        <h2 class="text-2xl font-black italic text-white uppercase mb-6 tracking-tighter">Fila da Taverna</h2>
-        <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
-    </main>
-
-    <footer class="mt-10 mb-12 text-center">
-        <img src="logo.png" id="footer-logo" class="logo-gold mx-auto">
-    </footer>
-
-    <script>
-        // CONFIGURAÇÃO ÚNICA (Resolve o SyntaxError do print image_dbac21.jpg)
-        const FINAL_URL = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const FINAL_KEY = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supa = window.supabase.createClient(FINAL_URL, FINAL_KEY);
-        
-        const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('jukebox_user_id', MY_ID);
-
-        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
-        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
-        let currentToken = null;
-
-        async function getToken() {
-            if (currentToken) return currentToken;
-            const res = await fetch(AUTH_URL, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
-                body: 'grant_type=client_credentials' 
+let sTimer;
+function debounceSearch() {
+    const q = document.getElementById('searchInput').value;
+    const resDiv = document.getElementById('search-results');
+    if(q.length < 3) { resDiv.innerHTML = ""; return; }
+    
+    clearTimeout(sTimer);
+    sTimer = setTimeout(async () => {
+        const token = await getToken();
+        try {
+            // Pesquisa com limite de 10 conforme a documentação
+            const sRes = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
+                headers: { 'Authorization': 'Bearer ' + token }
             });
-            const data = await res.json();
-            return (currentToken = data.access_token);
-        }
+            const sData = await sRes.json();
+            if (!sData.tracks || !sData.tracks.items.length) return;
 
-        let sTimer;
-        function debounceSearch() {
-            const q = document.getElementById('searchInput').value;
-            const resDiv = document.getElementById('search-results');
-            if(q.length < 3) { resDiv.innerHTML = ""; return; }
+            // Criar a lista de IDs de forma limpa
+            const ids = sData.tracks.items.map(t => t.artists[0].id).filter(id => id).join(',');
             
-            clearTimeout(sTimer);
-            sTimer = setTimeout(async () => {
-                const token = await getToken();
-                try {
-                    // FIX: limit=10 (conforme documentação do teu print image_a84e1f.png)
-                    const sRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-                    const sData = await sRes.json();
-                    if (!sData.tracks || !sData.tracks.items) return;
-
-                    const ids = sData.tracks.items.map(t => t.artists[0].id).join(',');
-                    const aRes = await fetch(`${API_URL}/artists?ids=${ids}`, {
-                        headers: { 'Authorization': 'Bearer ' + token }
-                    });
-                    
-                    // SEGURANÇA: Se o Spotify der 403 (erro do teu print), o código não crasha
-                    if (!aRes.ok) {
-                        console.warn("Spotify Artists API falhou (403). A ignorar filtro de género.");
-                    }
-                    
-                    const aData = aRes.ok ? await aRes.json() : { artists: [] };
-                    const artMap = {};
-                    (aData.artists || []).forEach(a => { 
-                        if(a) artMap[a.id] = (a.genres || []).join(" ").toLowerCase(); 
-                    });
-
-                    const forbidden = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha", "forro", "brega", "reggaeton"];
-                    
-                    const filtered = sData.tracks.items.filter(t => {
-                        const name = t.artists[0].name.toLowerCase();
-                        const genres = artMap[t.artists[0].id] || "";
-                        const isMC = name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ");
-                        const isBadVibe = forbidden.some(v => genres.includes(v));
-                        return !isMC && !isBadVibe;
-                    });
-
-                    resDiv.innerHTML = "";
-                    if (!filtered.length) {
-                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra na Portinha! 🍷🚫</p>";
-                        return;
-                    }
-
-                    filtered.slice(0, 5).forEach(song => {
-                        const div = document.createElement('div');
-                        div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer mb-2";
-                        div.onclick = () => addToQueue(song);
-                        div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
-                        resDiv.appendChild(div);
-                    });
-                    lucide.createIcons();
-                } catch(e) { console.error("Erro na pesquisa:", e); }
-            }, 500);
-        }
-
-        async function addToQueue(song) {
-            const n = prompt("O teu nome?");
-            if(!n) return;
-            await supa.from('queue').insert([{ 
-                title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
-                spotify_uri: song.uri, user_name: n.substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
-            }]);
-            alert("Música enviada! 🤘");
-            document.getElementById('searchInput').value = "";
-            document.getElementById('search-results').innerHTML = "";
-        }
-
-        async function fetchQueue() {
-            const { data } = await supa.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
-            const list = document.getElementById('queue-list');
-            list.innerHTML = "";
-            (data || []).forEach(s => {
-                const div = document.createElement('div');
-                div.className = "flex items-center gap-4 wood-panel p-4";
-                div.innerHTML = `<img src="${s.cover_url}" class="w-12 h-12 rounded-lg"><div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${s.title}</p><p class="text-xs text-[#d4af37]">${s.user_name}</p></div><button onclick="vote('${s.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${s.votes}</button>`;
-                list.appendChild(div);
+            const aRes = await fetch(`https://api.spotify.com/v1/artists?ids=${ids}`, {
+                headers: { 'Authorization': 'Bearer ' + token }
             });
-        }
 
-        async function vote(id) {
-            const { data } = await supa.from('queue').select('votes').eq('id', id).single();
-            await supa.from('queue').update({ votes: (data.votes || 0) + 1 }).eq('id', id);
-            fetchQueue();
-        }
-
-        async function initSync() {
-            const { data } = await supa.from('playback_status').select('*').eq('id', 1).single();
-            if (data) {
-                document.getElementById('client-title').innerText = data.title;
-                document.getElementById('client-artist').innerText = data.artist;
-                document.getElementById('client-cover').src = data.cover_url;
-                document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
+            let artMap = {};
+            if (aRes.ok) {
+                const aData = await aRes.json();
+                (aData.artists || []).forEach(a => { 
+                    if(a) artMap[a.id] = (a.genres || []).join(" ").toLowerCase(); 
+                });
+            } else {
+                console.error("Filtro de género offline (403).");
             }
-        }
 
-        initSync(); fetchQueue();
-        supa.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
-        lucide.createIcons();
-    </script>
-</body>
-</html>
+            // A BLACKLIST (Expandida para apanhar a "brasileirada" sem MC)
+            const forbidden = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha", "forro", "brega", "reggaeton", "pop nacional", "axe", "vallenato"];
+            
+            const filtered = sData.tracks.items.filter(t => {
+                const name = t.artists[0].name.toLowerCase();
+                const genres = artMap[t.artists[0].id] || "";
+                
+                const isMC = name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ");
+                const isForbiddenVibe = forbidden.some(v => genres.includes(v));
+
+                // Se a API de géneros falhou (genres vazio), e não é um artista óbvio de rock/indie, 
+                // bloqueamos por precaução para evitar a invasão.
+                if (!genres && !isMC && q.toLowerCase() !== "nirvana") {
+                   // Opcional: deixar passar se tiveres a certeza, ou bloquear se quiseres rigor.
+                }
+
+                return !isMC && !isForbiddenVibe;
+            });
+
+            resDiv.innerHTML = "";
+            if (!filtered.length) {
+                resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra na Portinha! 🍷🚫</p>";
+                return;
+            }
+
+            filtered.slice(0, 5).forEach(song => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer mb-2";
+                div.onclick = () => addToQueue(song);
+                div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
+                resDiv.appendChild(div);
+            });
+            lucide.createIcons();
+        } catch(e) { console.error("Erro fatal:", e); }
+    }, 500);
+}
