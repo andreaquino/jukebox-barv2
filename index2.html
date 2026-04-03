@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Jukebox Digital</title>
+    <title>Portinha - Jukebox</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -105,6 +105,7 @@
             document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
         }
 
+        // AGORA SIM: O LINK REAL DO SPOTIFY PARA O TOKEN
         async function getSpotifyToken() {
             if (cachedToken) return cachedToken;
             const res = await fetch('https://accounts.spotify.com/api/token', { 
@@ -128,7 +129,7 @@
             sTimer = setTimeout(async () => {
                 const token = await getSpotifyToken();
                 try {
-                    // PASSO 1: Pesquisa normal de músicas (LINK CORRIGIDO)
+                    // PASSO 1: LINK REAL DA API DE PESQUISA DO SPOTIFY
                     const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=15`, { 
                         headers: { 'Authorization': 'Bearer ' + token } 
                     });
@@ -138,10 +139,10 @@
 
                     if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) return;
 
-                    // PASSO 2: Apanhar os IDs dos Artistas das músicas retornadas
+                    // PASSO 2: Apanhar IDs
                     const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 15);
 
-                    // PASSO 3: Perguntar ao Spotify quais os géneros (tags) de cada artista (LINK CORRIGIDO)
+                    // PASSO 3: LINK REAL DA API DE ARTISTAS DO SPOTIFY
                     const artistRes = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds.join(',')}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
@@ -159,10 +160,9 @@
                         "reggaeton", "arrocha", "trap brasileiro", "k-pop", "funk mtg", "funk viral"
                     ];
 
-                    // SEGURANÇA EXTRA NO NOME
                     const forbiddenNames = ["mc ", "dj ", "m.c."];
 
-                    // PASSO 4: Filtrar a lista
+                    // PASSO 4: Filtro implacável
                     const allowedTracks = data.tracks.items.filter(song => {
                         const artistName = song.artists[0].name.toLowerCase();
                         const genresString = artistGenres[song.artists[0].id] || ""; 
@@ -178,7 +178,7 @@
                         return;
                     }
 
-                    // PASSO 5: Mostrar resultados aprovados
+                    // PASSO 5: Renderizar
                     allowedTracks.slice(0, 5).forEach(song => {
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
