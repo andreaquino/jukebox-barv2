@@ -63,114 +63,75 @@
 
         async function getAuth() {
             if (currentToken) return currentToken;
-            const r = await fetch(AUTH_PATH, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
-                body: 'grant_type=client_credentials' 
-            });
-            const d = await r.json();
-            return (currentToken = d.access_token);
+            try {
+                const r = await fetch(AUTH_PATH, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
+                    body: 'grant_type=client_credentials' 
+                });
+                const d = await r.json();
+                return (currentToken = d.access_token);
+            } catch(e) { return null; }
         }
 
         // ─────────────────────────────────────────────────────────────────
-        //  FILTRO — 4 camadas, funciona 100% com Client Credentials
-        //  (sem nenhuma chamada extra à API do Spotify)
+        // FILTRO — Mantido exatamente como no teu index2.html original
         // ─────────────────────────────────────────────────────────────────
-
-        // CAMADA 1 — Palavras proibidas no TÍTULO da música
-        const BANNED_TITLE_WORDS = [
-            "pimba","sertanejo","pagode","arrocha","pisadinha",
-            "forro","forró","brega","reggaeton","regueton",
-            "funk","mtg","phonk","baile funk","passinho","tamborzão",
-            "axé","axe"
-        ];
-
-        // CAMADA 2 — Padrões no NOME DO ARTISTA (regex)
-        const BANNED_ARTIST_PATTERNS = [
-            /^mc\s/i,       // começa com "MC "
-            /\bmc\b/i,      // contém "MC" como palavra isolada
-            /^dj\s/i,       // começa com "DJ "
-        ];
-
-        // CAMADA 3 — Lista negra de artistas (nome exato em lowercase)
-        const BANNED_ARTISTS = new Set([
-            // Pimba PT
-            "quim barreiros","edgar domingues","toni carreira","tony carreira",
-            "vitorino","grupo académico de coimbra","zé da viola",
-            "augusto monti","paulo de carvalho","fernando de carvalho",
-            // Funk BR
-            "mc kevinho","mc joão","mc livinho","mc fioti","mc don juan",
-            "mc g15","mc binn","mc davi","mc ryan sp","mc cabelinho",
-            "mc poze do rodo","mc maneirinho","mc hariel","mc nd",
-            "mc neguinho do kaxeta","mc pedrinho","mc rick","mc rodolfinho",
-            // Sertanejo / Pagode BR
-            "anitta","gusttavo lima","jorge & mateus","henrique & juliano",
-            "maiara & maraísa","simone & simaria","marília mendonça",
-            "zé neto & cristiano","humberto & ronaldo","fernando & sorocaba",
-            "joão neto & frederico","matheus & kauan","pedro & thiago",
-            "luan santana","michel teló","wesley safadão","léo santana",
-            "xand avião","bell marques","claudinho e buchecha","thiaguinho",
-            "seu jorge","belo","exaltasamba","pagodart","dilsinho",
-            "ferrugem","mumuzinho","sorriso maroto","grupo revelação",
-            // Reggaeton / Latin trap
-            "bad bunny","j balvin","maluma","ozuna","daddy yankee",
-            "anuel aa","karol g","rauw alejandro","myke towers",
-            "farruko","sech","lunay","jhay cortez","nicky jam",
-            "don omar","wisin & yandel","wisin","yandel","pitbull",
-            "feid","paulo londra",
-        ]);
-
-        // CAMADA 4 — Palavras no NOME DO ARTISTA que denunciam o género
-        const BANNED_ARTIST_WORDS = [
-            "sertanejo","pagode","axé","forró","pisadinha","reggaeton","regueton",
-        ];
-
-        // Excepções — passam sempre independentemente das outras camadas
-        const ALWAYS_ALLOW = [
-            "nirvana","chemical brothers","radiohead","the cure","the prodigy",
-            "dj shadow","dj krush","dj shadow","dj premier",  // DJs de boa reputação
-        ];
+        const BANNED_TITLE_WORDS = ["pimba","sertanejo","pagode","arrocha","pisadinha","forro","forró","brega","reggaeton","regueton","funk","mtg","phonk","baile funk","passinho","tamborzão","axé","axe"];
+        const BANNED_ARTIST_PATTERNS = [/^mc\s/i, /\bmc\b/i, /^dj\s/i];
+        const BANNED_ARTISTS = new Set(["quim barreiros","edgar domingues","toni carreira","tony carreira","vitorino","grupo académico de coimbra","zé da viola","augusto monti","paulo de carvalho","fernando de carvalho","mc kevinho","mc joão","mc livinho","mc fioti","mc don juan","mc g15","mc binn","mc davi","mc ryan sp","mc cabelinho","mc poze do rodo","mc maneirinho","mc hariel","mc nd","mc neguinho do kaxeta","mc pedrinho","mc rick","mc rodolfinho","anitta","gusttavo lima","jorge & mateus","henrique & juliano","maiara & maraísa","simone & simaria","marília mendonça","zé neto & cristiano","humberto & ronaldo","fernando & sorocaba","joão neto & frederico","matheus & kauan","pedro & thiago","luan santana","michel teló","wesley safadão","léo santana","xand avião","bell marques","claudinho e buchecha","thiaguinho","seu jorge","belo","exaltasamba","pagodart","dilsinho","ferrugem","mumuzinho","sorriso maroto","grupo revelação","bad bunny","j balvin","maluma","ozuna","daddy yankee","anuel aa","karol g","rauw alejandro","myke towers","farruko","sech","lunay","jhay cortez","nicky jam","don omar","wisin & yandel","wisin","yandel","pitbull","feid","paulo londra"]);
+        const BANNED_ARTIST_WORDS = ["sertanejo","pagode","axé","forró","pisadinha","reggaeton","regueton"];
+        const ALWAYS_ALLOW = ["nirvana","chemical brothers","radiohead","the cure","the prodigy","dj shadow","dj krush","dj premier"];
 
         function isBanned(track) {
             const title  = track.name.toLowerCase();
             const artist = track.artists[0].name.toLowerCase();
-
-            // Excepções explícitas
             if (ALWAYS_ALLOW.some(a => artist.includes(a))) return false;
-
-            // Camada 1 — título
             if (BANNED_TITLE_WORDS.some(w => title.includes(w))) return true;
-
-            // Camada 2 — padrões no artista
             if (BANNED_ARTIST_PATTERNS.some(r => r.test(artist))) return true;
-
-            // Camada 3 — lista negra exacta
             if (BANNED_ARTISTS.has(artist)) return true;
-
-            // Camada 4 — palavras no nome do artista
             if (BANNED_ARTIST_WORDS.some(w => artist.includes(w))) return true;
-
             return false;
         }
 
         // ─────────────────────────────────────────────────────────────────
-
+        // PESQUISA — Corrigida para mostrar resultados e erros
+        // ─────────────────────────────────────────────────────────────────
         let sTimer;
         function debounceSearch() {
             const val = document.getElementById('searchInput').value;
             const resDiv = document.getElementById('search-results');
-            if (val.length < 3) { resDiv.innerHTML = ""; return; }
+            
+            if (val.length < 3) { 
+                resDiv.innerHTML = ""; 
+                return; 
+            }
             
             clearTimeout(sTimer);
             sTimer = setTimeout(async () => {
+                resDiv.innerHTML = "<p class='text-white/30 text-center p-4 italic'>A procurar no Spotify...</p>";
+                
                 const token = await getAuth();
+                if (!token) {
+                    resDiv.innerHTML = "<p class='text-red-500 text-center p-4'>Erro na ligação ao Spotify.</p>";
+                    return;
+                }
+
                 try {
-                    // Pede 20 resultados para ter margem após filtrar
                     const sRes = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=20&market=PT`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
+                    
+                    if (!sRes.ok) {
+                        resDiv.innerHTML = "<p class='text-red-500 text-center p-4'>Spotify ocupado. Tenta de novo.</p>";
+                        return;
+                    }
+
                     const sData = await sRes.json();
-                    if (!sData.tracks || !sData.tracks.items.length) return;
+                    if (!sData.tracks || !sData.tracks.items.length) {
+                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Nada encontrado.</p>";
+                        return;
+                    }
 
                     const filtered = sData.tracks.items.filter(t => !isBanned(t));
 
@@ -194,7 +155,10 @@
                         resDiv.appendChild(div);
                     });
                     lucide.createIcons();
-                } catch(e) { console.error(e); }
+                } catch(e) { 
+                    console.error(e);
+                    resDiv.innerHTML = "<p class='text-red-500 text-center p-4'>Erro ao carregar músicas.</p>";
+                }
             }, 500);
         }
 
