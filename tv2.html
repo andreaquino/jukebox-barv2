@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
@@ -239,7 +239,21 @@
             50% { opacity: 0.5; transform: scale(0.7); }
         }
 
-        #tv-title-wrap { overflow: hidden; margin-bottom: 0.5vh; }
+        /* ── MARQUEE TITLE ── */
+        #tv-title-wrap {
+            overflow: hidden;
+            margin-bottom: 0.5vh;
+            position: relative;
+            /* fade edges via mask */
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 88%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0%, black 4%, black 88%, transparent 100%);
+        }
+
+        /* mask only active when scrolling */
+        #tv-title-wrap.static {
+            -webkit-mask-image: none;
+            mask-image: none;
+        }
 
         #tv-title {
             font-family: 'Playfair Display', serif;
@@ -248,8 +262,22 @@
             line-height: 0.95;
             color: #fff;
             white-space: nowrap;
-            display: block;
+            display: inline-block;
             text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            /* animation added by JS when needed */
+        }
+
+        @keyframes marquee-scroll {
+            0%        { transform: translateX(0); }
+            /* pause at start */
+            12%       { transform: translateX(0); }
+            /* scroll to end */
+            75%       { transform: translateX(var(--scroll-dist)); }
+            /* pause at end */
+            88%       { transform: translateX(var(--scroll-dist)); }
+            /* jump back instantly */
+            88.001%   { transform: translateX(0); }
+            100%      { transform: translateX(0); }
         }
 
         #tv-artist {
@@ -451,7 +479,7 @@
     <!-- Lock Screen -->
     <div id="lock-screen">
         <div class="lock-logo">PORTINHA</div>
-        <div class="lock-sub">Ecrã do Bar</div>
+        <div class="lock-sub">Ecrã da Taverna</div>
         <input type="password" id="passInput" class="lock-input" placeholder="••••" maxlength="6"
                onkeydown="if(event.key==='Enter') checkPass()">
         <button class="lock-btn" onclick="checkPass()">ENTRAR</button>
@@ -474,7 +502,7 @@
     <!-- Wordmark -->
     <div id="wordmark">
         <div class="wordmark-bar"></div>
-        <div class="wordmark-text">PORTINHA</div>
+        <div class="wordmark-text">A PORTINHA</div>
     </div>
 
     <!-- Main -->
@@ -551,16 +579,48 @@
 
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
 
-        /* ── FONT SIZE ── */
-        function adjustFontSize() {
+        /* ── MARQUEE TITLE ── */
+        function adjustTitle() {
             const title = document.getElementById('tv-title');
             const wrap  = document.getElementById('tv-title-wrap');
-            let fs = 6.5;
-            title.style.fontSize = fs + 'vw';
-            while (title.scrollWidth > wrap.clientWidth && fs > 2.2) {
-                fs -= 0.1;
-                title.style.fontSize = fs + 'vw';
-            }
+
+            title.style.animation = 'none';
+            title.style.fontSize  = '6.5vw';
+            wrap.classList.remove('static');
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const wrapW  = wrap.clientWidth;
+                    const titleW = title.scrollWidth;
+
+                    if (titleW <= wrapW) {
+                        wrap.classList.add('static');
+                        return;
+                    }
+
+                    const overflow  = titleW - wrapW;
+                    const scrollSec = overflow / 80;
+                    const pauseSec  = 2.5;
+                    const totalSec  = scrollSec + pauseSec * 2;
+                    const p1 = (pauseSec / totalSec * 100).toFixed(2);
+                    const p2 = ((pauseSec + scrollSec) / totalSec * 100).toFixed(2);
+                    const p3 = (parseFloat(p2) + 0.001).toFixed(3);
+
+                    title.style.setProperty('--scroll-dist', `-${overflow}px`);
+
+                    let dynStyle = document.getElementById('dyn-marquee');
+                    if (!dynStyle) { dynStyle = document.createElement('style'); dynStyle.id = 'dyn-marquee'; document.head.appendChild(dynStyle); }
+                    dynStyle.textContent = `@keyframes marquee-scroll {
+                        0%      { transform: translateX(0); }
+                        ${p1}%  { transform: translateX(0); }
+                        ${p2}%  { transform: translateX(var(--scroll-dist)); }
+                        ${p3}%  { transform: translateX(0); }
+                        100%    { transform: translateX(0); }
+                    }`;
+
+                    title.style.animation = `marquee-scroll ${totalSec}s ease-in-out infinite`;
+                });
+            });
         }
 
         /* ── LOCK ── */
@@ -664,7 +724,7 @@
                     });
 
                     document.getElementById('tv-title').innerText = data.item.name;
-                    adjustFontSize();
+                    adjustTitle();
                     document.getElementById('tv-artist').innerText = data.item.artists[0].name;
                     document.getElementById('tv-cover').src = data.item.album.images[0].url;
                     document.getElementById('bg-blur').style.backgroundImage = `url('${data.item.album.images[0].url}')`;
