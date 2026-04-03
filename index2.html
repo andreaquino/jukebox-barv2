@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Jukebox </title>
+    <title>Portinha - Jukebox Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -172,7 +172,8 @@
                 }
 
                 try {
-                    const res = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=15`, { 
+                    // AQUI ESTÁ A CORREÇÃO (limit=10 e sem market=PT)
+                    const res = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=10`, { 
                         headers: { 'Authorization': 'Bearer ' + token },
                         cache: 'no-store'
                     });
@@ -214,7 +215,7 @@
                     console.error("Erro pesquisa:", e); 
                     results.innerHTML = `<p class='text-red-500 text-center p-4 text-xs font-mono'>Erro: ${e.message}</p>`;
                 }
-            }, 500); // 500ms evita enviar requests incompletos
+            }, 500);
         }
 
         // --- ADICIONAR À FILA COM COOLDOWN (10 Min) ---
