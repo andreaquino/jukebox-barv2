@@ -330,7 +330,7 @@
                 });
             } else if (qData && qData.queue) {
                 qData.queue.slice(0, 6).forEach(t => {
-                    const div = document.createElement('div'); div.className = "flex items-center gap-4 opacity-50 animate-in fade-in duration-500";
+                    const div = document.createElement('div'); div.className = "flex items-center gap-4 animate-in fade-in duration-500";
                     div.innerHTML = `<img src="${t.album.images[0].url}" class="w-[3.5vw] h-[3.5vw] rounded-md object-cover grayscale-[30%]"> <div class="flex-1 min-w-0"><p class="text-[1.2vw] font-bold truncate text-white leading-tight">${t.name}</p><p class="text-[0.8vw] text-white/50 uppercase font-black truncate mt-1">Playlist Portinha</p></div>`;
                     container.appendChild(div);
                 });
