@@ -3,20 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Jukebox </title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { 
-            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
-            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('bar_background_portinha.jpg'); 
-            background-size: cover; backgro<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portinha - Jukebox Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -24,12 +10,12 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { 
-            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
+            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh;
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('bar_background_portinha.jpg'); 
             background-size: cover; background-position: center; background-attachment: fixed; background-color: #000;
         }
         .wood-panel { background: rgba(15, 7, 5, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 24px; }
-        .logo-gold-filter { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; }
+        .logo-gold { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; }
         .btn-gold { background: #d4af37; color: #000; font-weight: 900; }
     </style>
 </head>
@@ -40,419 +26,141 @@
             <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover">
             <div class="overflow-hidden flex-1">
                 <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
-                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
+                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">A carregar...</h2>
                 <p id="client-artist" class="text-white/50 text-sm italic">...</p>
                 <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-                    <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%; transition: width 1s linear;"></div>
+                    <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%;"></div>
                 </div>
             </div>
         </div>
     </header>
 
     <main class="w-full max-w-lg flex-1">
-        <div class="relative flex items-center mb-8">
-            <i data-lucide="search" class="absolute left-5 text-[#d4af37]/50 w-5 h-5"></i>
+        <div class="relative mb-8">
+            <i data-lucide="search" class="absolute left-5 top-5 text-[#d4af37]/50 w-5 h-5"></i>
             <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música ou artista..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
         </div>
         <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
-        
-        <div class="flex justify-between items-center mb-6 px-2">
-            <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Fila da Taverna</h2>
-            <span id="admin-indicator" class="hidden text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">MODO VETO</span>
-        </div>
+        <h2 class="text-2xl font-black italic text-white uppercase mb-6">Fila da Taverna</h2>
         <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
     </main>
 
     <footer class="mt-10 mb-12 text-center">
-        <img src="logo.png" id="footer-logo" class="logo-gold-filter mb-3 mx-auto" onmousedown="startAdminTimer()" onmouseup="clearAdminTimer()">
+        <img src="logo.png" id="footer-logo" class="logo-gold mx-auto">
     </footer>
 
     <script>
+        // CONFIGURAÇÃO SUPABASE (Corrigida declaração única)
         const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
         const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
-        let adminMode = false;
-        let adminTimer;
+        // SPOTIFY API (Links reais descodificados)
+        const AUTH_URL = "https://accounts.spotify.com/api/token";
+        const API_URL = "https://api.spotify.com/v1";
         let cachedToken = null;
 
-        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
-        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
-
-        async function getSpotifyToken() {
+        async function getToken() {
             if (cachedToken) return cachedToken;
-            try {
-                const res = await fetch(AUTH_URL, { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
-                    body: 'grant_type=client_credentials' 
-                });
-                const data = await res.json();
-                return (cachedToken = data.access_token);
-            } catch(e) { return null; }
+            const res = await fetch(AUTH_URL, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
+                body: 'grant_type=client_credentials' 
+            });
+            const data = await res.json();
+            return (cachedToken = data.access_token);
         }
 
         let sTimer;
         function debounceSearch() {
             const q = document.getElementById('searchInput').value;
-            const results = document.getElementById('search-results'); 
-            if(q.length < 2) { results.innerHTML = ""; return; }
+            const resDiv = document.getElementById('search-results');
+            if(q.length < 3) { resDiv.innerHTML = ""; return; }
             
             clearTimeout(sTimer);
             sTimer = setTimeout(async () => {
-                const token = await getSpotifyToken();
-                if (!token) return;
-
+                const token = await getToken();
                 try {
-                    // Pesquisa simplificada com market PT para evitar erro 400
-                    const res = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, { 
-                        headers: { 'Authorization': 'Bearer ' + token } 
-                    });
-                    const data = await res.json();
-                    
-                    if (!data.tracks || !data.tracks.items.length) {
-                        results.innerHTML = "<p class='text-center p-4 text-white/50'>Sem resultados.</p>";
-                        return;
-                    }
-
-                    // Obter géneros para filtrar
-                    const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 10);
-                    const artistRes = await fetch(`${API_URL}/artists?ids=${artistIds.join(',')}`, {
+                    // FIX: Limit=10 e Market=PT para evitar erro 400
+                    const searchRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
-                    const artistData = await artistRes.json();
-                    const artistGenres = {};
-                    artistData.artists.forEach(a => { artistGenres[a.id] = a.genres.join(" ").toLowerCase(); });
+                    const searchData = await searchRes.json();
+                    if (!searchData.tracks || !searchData.tracks.items.length) return;
 
-                    const forbidden = ["sertanejo", "pimba", "funk carioca", "funk paulista", "pagode", "forro", "pisadinha", "brega", "reggaeton", "arrocha"];
+                    // Obter Géneros dos Artistas
+                    const ids = searchData.tracks.items.map(t => t.artists[0].id).join(',');
+                    const artRes = await fetch(`${API_URL}/artists?ids=${ids}`, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    const artData = await artRes.json();
+                    const artGenres = {};
+                    artData.artists.forEach(a => { artGenres[a.id] = a.genres.join(" ").toLowerCase(); });
 
-                    const filtered = data.tracks.items.filter(song => {
-                        const name = song.artists[0].name.toLowerCase();
-                        const genres = artistGenres[song.artists[0].id] || "";
-                        
-                        // Se for MC ou DJ de funk, bloqueia
-                        if (name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ")) {
-                            // Deixa passar DJs conhecidos (ex: Chemical Brothers não são DJs no nome)
-                            return false;
-                        }
-                        
-                        // Se tiver género proibido, bloqueia
-                        const isForbidden = forbidden.some(f => genres.includes(f));
-                        return !isForbidden;
+                    // FILTRO BLACKLIST (Barra o lixo, deixa passar o Nirvana)
+                    const blacklist = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha"];
+                    
+                    const filtered = searchData.tracks.items.filter(t => {
+                        const name = t.artists[0].name.toLowerCase();
+                        const genres = artGenres[t.artists[0].id] || "";
+                        const isMC = name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ");
+                        const isBadVibe = blacklist.some(v => genres.includes(v));
+                        return !isMC && !isBadVibe;
                     });
 
-                    results.innerHTML = "";
-                    if (filtered.length === 0) {
-                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra aqui! 🍷🚫</p>";
+                    resDiv.innerHTML = "";
+                    if (!filtered.length) {
+                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic'>Vibe não autorizada! 🍷🚫</p>";
                         return;
                     }
 
                     filtered.slice(0, 5).forEach(song => {
                         const div = document.createElement('div');
-                        div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
+                        div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer mb-2";
                         div.onclick = () => addToQueue(song);
                         div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
-                        results.appendChild(div);
+                        resDiv.appendChild(div);
                     });
                     lucide.createIcons();
-                } catch(e) { console.error(e); }
-            }, 400);
+                } catch(e) { console.error("Erro na pesquisa", e); }
+            }, 500);
         }
 
         async function addToQueue(song) {
-            let name = prompt("O teu nome?");
+            const name = prompt("O teu nome?");
             if(!name) return;
-            await supabaseClient.from('queue').insert([{ 
+            await supabase.from('queue').insert([{ 
                 title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
                 spotify_uri: song.uri, user_name: name.substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
             }]);
-            document.getElementById('searchInput').value = ""; results.innerHTML = "";
             alert("Na fila! 🤘");
+            document.getElementById('searchInput').value = "";
+            document.getElementById('search-results').innerHTML = "";
         }
 
         async function fetchQueue() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
-            const container = document.getElementById('queue-list'); container.innerHTML = "";
-            (data || []).forEach(song => {
+            const { data } = await supabase.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
+            const list = document.getElementById('queue-list');
+            list.innerHTML = "";
+            (data || []).forEach(s => {
                 const div = document.createElement('div');
                 div.className = "flex items-center gap-4 wood-panel p-4";
-                div.innerHTML = `<img src="${song.cover_url}" class="w-12 h-12 rounded-lg"><div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.title}</p><p class="text-xs text-[#d4af37]">${song.user_name}</p></div><button onclick="upvote('${song.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${song.votes}</button>`;
-                container.appendChild(div);
+                div.innerHTML = `<img src="${s.cover_url}" class="w-12 h-12 rounded-lg"><div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${s.title}</p><p class="text-xs text-[#d4af37]">${s.user_name}</p></div><button onclick="vote('${s.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${s.votes}</button>`;
+                list.appendChild(div);
             });
         }
 
-        async function upvote(id) {
-            const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
-            await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
+        async function vote(id) {
+            const { data } = await supabase.from('queue').select('votes').eq('id', id).single();
+            await supabase.from('queue').update({ votes: (data.votes || 0) + 1 }).eq('id', id);
             fetchQueue();
         }
 
-        async function initSync() {
-            const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
-            if (data) {
-                document.getElementById('client-title').innerText = data.title;
-                document.getElementById('client-artist').innerText = data.artist;
-                document.getElementById('client-cover').src = data.cover_url;
-                document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
-            }
-        }
-
-        initSync(); fetchQueue();
-        supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
-        lucide.createIcons();
-    </script>
-</body>
-</html>und-position: center; background-attachment: fixed; background-color: #000;
-            user-select: none;
-        }
-        .wood-panel { background: rgba(15, 7, 5, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.2); border-radius: 24px; }
-        .logo-gold-filter { filter: brightness(0) saturate(100%) invert(80%) sepia(59%) saturate(415%) hue-rotate(352deg) brightness(89%) contrast(89%); width: 120px; opacity: 0.8; cursor: pointer; -webkit-touch-callout: none; }
-        .btn-gold { background: #d4af37; color: #000; font-weight: 900; }
-    </style>
-</head>
-<body class="p-4 flex flex-col items-center">
-
-    <header class="w-full max-w-lg mb-8 wood-panel p-5 border-l-4 border-[#d4af37]">
-        <div class="flex gap-4 items-center">
-            <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl border border-white/5 object-cover">
-            <div class="overflow-hidden flex-1">
-                <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
-                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
-                <p id="client-artist" class="text-white/50 text-sm italic">...</p>
-                <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
-                    <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%; transition: width 1s linear;"></div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="w-full max-w-lg flex-1">
-        <div class="relative flex items-center mb-8">
-            <i data-lucide="search" class="absolute left-5 text-[#d4af37]/50 w-5 h-5"></i>
-            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música ou artista..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
-        </div>
-        <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
-        
-        <div class="flex justify-between items-center mb-6 px-2">
-            <h2 class="text-2xl font-black italic text-white uppercase tracking-tighter">Fila da Taverna</h2>
-            <span id="admin-indicator" class="hidden text-[10px] bg-red-600 text-white px-3 py-1 rounded-full font-bold animate-pulse">MODO VETO</span>
-        </div>
-        <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
-    </main>
-
-    <footer class="mt-10 mb-12 text-center flex flex-col items-center">
-        <img src="logo.png" id="footer-logo" alt="Portinha Logo" 
-             class="logo-gold-filter mb-3"
-             oncontextmenu="return false;"
-             onmousedown="startAdminTimer(event)" onmouseup="clearAdminTimer()"
-             ontouchstart="startAdminTimer(event)" ontouchend="clearAdminTimer()">
-    </footer>
-
-    <script>
-        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-        const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('jukebox_user_id', MY_ID);
-
-        let adminMode = false;
-        let adminTimer;
-        let cachedToken = null;
-
-        // URLs em Base64 para furar filtros
-        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
-        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
-
-        function startAdminTimer(e) {
-            clearTimeout(adminTimer);
-            adminTimer = setTimeout(() => {
-                const p = prompt("Admin Pass:");
-                if(p === "1234") {
-                    adminMode = !adminMode;
-                    document.getElementById('admin-indicator').classList.toggle('hidden');
-                    fetchQueue();
-                    alert(adminMode ? "Modo Veto ATIVO 🔨" : "Modo Veto Desativado");
-                }
-            }, 3000);
-        }
-
-        function clearAdminTimer() { clearTimeout(adminTimer); }
-
-        async function removeSong(id) {
-            if(confirm("Remover esta música?")) {
-                await supabaseClient.from('queue').update({ status: 'played' }).eq('id', id);
-                fetchQueue();
-            }
-        }
-
-        async function initSync() {
-            const { data } = await supabaseClient.from('playback_status').select('*').eq('id', 1).single();
-            if (data) updateUI(data);
-            supabaseClient.channel('any').on('postgres_changes', { event: '*', schema: 'public', table: 'playback_status' }, p => updateUI(p.new)).subscribe();
-        }
-
-        function updateUI(data) {
-            if(!data) return;
-            document.getElementById('client-title').innerText = data.title;
-            document.getElementById('client-artist').innerText = data.artist;
-            document.getElementById('client-cover').src = data.cover_url;
-            document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
-        }
-
-        // SISTEMA DE TOKEN MELHORADO (Com deteção de erros)
-        async function getSpotifyToken() {
-            if (cachedToken) return cachedToken;
-            try {
-                const res = await fetch(AUTH_URL, { 
-                    method: 'POST', 
-                    headers: { 
-                        'Content-Type': 'application/x-www-form-urlencoded', 
-                        'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') 
-                    }, 
-                    body: 'grant_type=client_credentials' 
-                });
-                
-                const data = await res.json();
-                if (!res.ok || !data.access_token) {
-                    console.error("Erro no Token:", data);
-                    return null; // Força a falha se o token não existir
-                }
-                
-                cachedToken = data.access_token;
-                return cachedToken;
-            } catch(e) {
-                console.error("Erro Crítico de Rede (Token):", e);
-                return null;
-            }
-        }
-
-        let sTimer;
-        function debounceSearch() {
-            const q = document.getElementById('searchInput').value;
-            const results = document.getElementById('search-results'); 
-            
-            if(q.length < 2) { results.innerHTML = ""; return; }
-            clearTimeout(sTimer);
-            
-            sTimer = setTimeout(async () => {
-                
-                // 1. TENTA OBTER O TOKEN
-                const token = await getSpotifyToken();
-                if (!token) {
-                    results.innerHTML = "<p class='text-red-500 text-center p-4 font-bold bg-black/50 rounded-xl'>Erro Crítico: Não foi possível obter o Token do Spotify. Vê a consola!</p>";
-                    return;
-                }
-
-                try {
-                    // 2. TENTA A PESQUISA
-                    const searchEndpoint = API_URL + "/search?q=" + encodeURIComponent(q) + "&type=track&limit=15";
-                    const res = await fetch(searchEndpoint, { 
-                        headers: { 'Authorization': 'Bearer ' + token } 
-                    });
-                    
-                    // SE O SPOTIFY REJEITAR, MOSTRAMOS O MOTIVO EXATO!
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        results.innerHTML = `<p class='text-red-500 text-center p-4 font-bold bg-black/50 rounded-xl'>Spotify rejeitou: ${errorData.error.message}</p>`;
-                        return;
-                    }
-
-                    const data = await res.json();
-                    results.innerHTML = "";
-
-                    if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) return;
-
-                    const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 15);
-                    if(artistIds.length === 0) return;
-
-                    // 3. TENTA A API DOS ARTISTAS
-                    const artistsEndpoint = API_URL + "/artists?ids=" + artistIds.join(',');
-                    const artistRes = await fetch(artistsEndpoint, { headers: { 'Authorization': 'Bearer ' + token } });
-                    
-                    if (!artistRes.ok) return; // Ignora se falhar aqui para não bloquear o utilizador
-                    
-                    const artistData = await artistRes.json();
-                    const artistGenres = {};
-                    (artistData.artists || []).forEach(a => { artistGenres[a.id] = a.genres.join(" ").toLowerCase(); });
-
-                    const forbiddenVibes = ["sertanejo", "pimba", "funk carioca", "funk paulista", "funk ostentacao", "pagode", "forro", "pisadinha", "brega", "reggaeton", "arrocha", "trap brasileiro", "k-pop", "funk mtg", "funk viral"];
-                    const forbiddenNames = ["mc ", "dj ", "m.c."];
-
-                    const allowedTracks = data.tracks.items.filter(song => {
-                        const artistName = song.artists[0].name.toLowerCase();
-                        const genresString = artistGenres[song.artists[0].id] || ""; 
-                        const hasBadName = forbiddenNames.some(badName => artistName.includes(badName));
-                        const hasBadVibe = forbiddenVibes.some(badVibe => genresString.includes(badVibe));
-                        return !hasBadName && !hasBadVibe;
-                    });
-
-                    if (allowedTracks.length === 0 && data.tracks.items.length > 0) {
-                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>O Segurança não deixou essa passar... Tenta outra vibe! 🚫🍷</p>";
-                        return;
-                    }
-
-                    allowedTracks.slice(0, 5).forEach(song => {
-                        const div = document.createElement('div');
-                        div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
-                        div.onclick = () => addToQueue(song);
-                        div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
-                        results.appendChild(div);
-                    });
-                    lucide.createIcons();
-                } catch(e) { 
-                    results.innerHTML = "<p class='text-red-500 text-center p-4 font-bold'>Erro no código da pesquisa!</p>";
-                }
-            }, 400);
-        }
-
-        async function addToQueue(song) {
-            const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-            const { data: recent } = await supabaseClient.from('queue').select('id').eq('user_id', MY_ID).gte('created_at', tenMinutesAgo);
-
-            if (recent && recent.length > 0) return alert("Uma música a cada 10 min. 🍷⏳");
-
-            let name = prompt("Qual o teu nome?");
-            if(!name) return;
-
-            await supabaseClient.from('queue').insert([{ 
-                title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
-                spotify_uri: song.uri, user_name: name.trim().substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
-            }]);
-
-            document.getElementById('searchInput').value = ""; document.getElementById('search-results').innerHTML = "";
-            alert("Enviada! 🤘🍷");
-        }
-
-        async function fetchQueue() {
-            const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(10);
-            const container = document.getElementById('queue-list'); container.innerHTML = "";
-            (data || []).forEach(song => {
-                const div = document.createElement('div');
-                div.className = "flex items-center gap-4 wood-panel p-4 border-l-2 border-[#d4af37]/30";
-                div.innerHTML = `
-                    <img src="${song.cover_url}" class="w-14 h-14 rounded-xl shadow-md">
-                    <div class="flex-1 min-w-0">
-                        <p class="font-bold text-white text-sm truncate">${song.title}</p>
-                        <p class="text-[10px] text-[#d4af37] font-black uppercase tracking-widest mt-1">${song.user_name}</p>
-                    </div>
-                    ${adminMode ? `<button onclick="removeSong('${song.id}')" class="bg-red-600/20 text-red-500 p-3 rounded-xl border border-red-600/50"><i data-lucide="trash-2"></i></button>` : `<button onclick="upvote('${song.id}')" class="btn-gold px-4 py-2 rounded-xl text-xs flex items-center gap-2">❤️ ${song.votes}</button>`}`;
-                container.appendChild(div);
-            });
-            lucide.createIcons();
-        }
-
-        async function upvote(id) {
-            const { data: v } = await supabaseClient.from('votes').select('*').eq('song_id', id).eq('user_id', MY_ID);
-            if (v?.length > 0) return alert("Já votaste!");
-            await supabaseClient.from('votes').insert([{ song_id: id, user_id: MY_ID }]);
-            const { data: s } = await supabaseClient.from('queue').select('votes').eq('id', id).single();
-            await supabaseClient.from('queue').update({ votes: (s.votes || 0) + 1 }).eq('id', id);
-        }
-
-        initSync(); fetchQueue();
-        supabaseClient.channel('q_c').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+        // Sincronização inicial
+        fetchQueue();
+        supabase.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
 </body>
