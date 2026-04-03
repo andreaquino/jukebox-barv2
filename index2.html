@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Jukebox </title>
+    <title>Portinha - Jukebox Digital</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { 
-            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh;
+            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), url('bar_background_portinha.jpg'); 
             background-size: cover; background-position: center; background-attachment: fixed; background-color: #000;
         }
@@ -26,7 +26,7 @@
             <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover">
             <div class="overflow-hidden flex-1">
                 <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
-                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">A carregar...</h2>
+                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
                 <p id="client-artist" class="text-white/50 text-sm italic">...</p>
                 <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
                     <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%;"></div>
@@ -41,7 +41,7 @@
             <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
         </div>
         <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
-        <h2 class="text-2xl font-black italic text-white uppercase mb-6">Fila da Taverna</h2>
+        <h2 class="text-2xl font-black italic text-white uppercase mb-6 tracking-tighter">Fila da Taverna</h2>
         <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
     </main>
 
@@ -50,15 +50,14 @@
     </footer>
 
     <script>
-        // CONFIGURAÇÃO ÚNICA DO SUPABASE
-        const SUPABASE_URL = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // CONFIGURAÇÃO ÚNICA (Resolve o erro da linha 52 do print)
+        const URL_SUPA = 'https://tgbyxogyrugjfggugigf.supabase.co';
+        const KEY_SUPA = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+        const clientSupa = window.supabase.createClient(URL_SUPA, KEY_SUPA);
         
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
-        // SPOTIFY API (Links reais descodificados)
         const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
         const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
         let cachedToken = null;
@@ -84,28 +83,28 @@
             sTimer = setTimeout(async () => {
                 const token = await getToken();
                 try {
-                    // FIX: Limit=10 e Market=PT para evitar erros 400
-                    const searchRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
+                    // FIX: Limit=10 para respeitar o range da documentação e evitar Erro 400
+                    const sRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
-                    const searchData = await searchRes.json();
-                    if (!searchData.tracks || !searchData.tracks.items.length) return;
+                    const sData = await sRes.json();
+                    if (!sData.tracks || !sData.tracks.items.length) return;
 
-                    // Obter Géneros para filtrar (Blacklist)
-                    const ids = searchData.tracks.items.map(t => t.artists[0].id).join(',');
-                    const artRes = await fetch(`${API_URL}/artists?ids=${ids}`, {
+                    // Obter Géneros dos Artistas
+                    const ids = sData.tracks.items.map(t => t.artists[0].id).join(',');
+                    const aRes = await fetch(`${API_URL}/artists?ids=${ids}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
-                    const artData = await artRes.json();
-                    const artGenres = {};
-                    artData.artists.forEach(a => { artGenres[a.id] = a.genres.join(" ").toLowerCase(); });
+                    const aData = await aRes.json();
+                    const artMap = {};
+                    aData.artists.forEach(a => { artMap[a.id] = a.genres.join(" ").toLowerCase(); });
 
-                    // A BLACKLIST (Bloqueia o lixo, deixa passar Nirvana e Chemical Brothers)
+                    // A BLACKLIST (Bloqueia o lixo, deixa passar o Nirvana)
                     const blacklist = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha", "forro", "brega", "reggaeton", "trap brasileiro"];
                     
-                    const filtered = searchData.tracks.items.filter(t => {
+                    const filtered = sData.tracks.items.filter(t => {
                         const name = t.artists[0].name.toLowerCase();
-                        const genres = artGenres[t.artists[0].id] || "";
+                        const genres = artMap[t.artists[0].id] || "";
                         const isMC = name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ");
                         const isBadVibe = blacklist.some(v => genres.includes(v));
                         return !isMC && !isBadVibe;
@@ -130,19 +129,19 @@
         }
 
         async function addToQueue(song) {
-            const name = prompt("O teu nome?");
+            const name = prompt("Qual o teu nome?");
             if(!name) return;
-            await supabase.from('queue').insert([{ 
+            await clientSupa.from('queue').insert([{ 
                 title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
                 spotify_uri: song.uri, user_name: name.substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
             }]);
-            alert("Na fila! 🤘");
+            alert("Música enviada! 🤘");
             document.getElementById('searchInput').value = "";
             document.getElementById('search-results').innerHTML = "";
         }
 
         async function fetchQueue() {
-            const { data } = await supabase.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
+            const { data } = await clientSupa.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
             const list = document.getElementById('queue-list');
             list.innerHTML = "";
             (data || []).forEach(s => {
@@ -154,13 +153,13 @@
         }
 
         async function vote(id) {
-            const { data } = await supabase.from('queue').select('votes').eq('id', id).single();
-            await supabase.update({ votes: (data.votes || 0) + 1 }).from('queue').eq('id', id);
+            const { data } = await clientSupa.from('queue').select('votes').eq('id', id).single();
+            await clientSupa.from('queue').update({ votes: (data.votes || 0) + 1 }).eq('id', id);
             fetchQueue();
         }
 
         async function initSync() {
-            const { data } = await supabase.from('playback_status').select('*').eq('id', 1).single();
+            const { data } = await clientSupa.from('playback_status').select('*').eq('id', 1).single();
             if (data) {
                 document.getElementById('client-title').innerText = data.title;
                 document.getElementById('client-artist').innerText = data.artist;
@@ -170,7 +169,7 @@
         }
 
         initSync(); fetchQueue();
-        supabase.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
+        clientSupa.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
 </body>
