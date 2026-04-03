@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha TV - Cinematic Premium</title>
+    <title>Portinha TV - Cinematic Premium (No Flash)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -38,6 +38,7 @@
         .progress-fill { background: #ffffff; height: 100%; border-radius: 99px; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); transition: width 1s linear; }
         
         #qrcode-container { background: white; padding: 12px; border-radius: 18px; display: inline-block; flex-shrink: 0; }
+        
         #lock-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; align-items: center; justify-content: center; }
 
         .admin-trigger { position: fixed; top: 0; left: 0; width: 150px; height: 150px; z-index: 10001; }
@@ -69,12 +70,15 @@
     <div class="vignette"></div>
 
     <div id="main-content">
+        
         <div class="flex-1 flex flex-col justify-end pb-[2vh]">
             <div class="flex items-end gap-6 mb-8">
                 <img id="tv-cover" src="" class="w-[18vw] h-[18vw] rounded-[2vw] shadow-[0_20px_50px_rgba(0,0,0,0.8)] object-cover border border-white/10 relative z-10">
+                
                 <div id="title-container" class="flex-1 min-w-0 flex flex-col justify-end pb-2 overflow-hidden relative z-10">
                     <h1 id="tv-title" class="font-[900] tracking-tighter leading-tight text-white drop-shadow-lg">...</h1>
                     <p id="tv-artist" class="text-[2.5vw] text-white/70 font-medium truncate drop-shadow-md">A carregar...</p>
+                    
                     <div id="tv-suggester-box" class="hidden mt-4 inline-flex items-center gap-4 px-6 py-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 w-fit">
                         <span class="text-[1vw] font-bold uppercase tracking-widest text-white/80">PEDIDO: <span id="tv-suggester" class="text-[#d4af37]">---</span></span>
                     </div>
@@ -93,6 +97,7 @@
         </div>
 
         <div class="w-[32vw] flex flex-col flex-shrink-0 relative z-10 h-full gap-[2vh]">
+            
             <div class="flex-1 glass-panel rounded-[2vw] p-[2vw] flex flex-col overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
                 <div class="flex items-center gap-3 mb-6 opacity-60">
                     <i data-lucide="align-left" class="w-5 h-5"></i>
@@ -104,10 +109,11 @@
             <div class="glass-panel p-[1.5vw] rounded-[2vw] flex items-center gap-[1.5vw] border border-[#d4af37]/30 bg-gradient-to-r from-[rgba(212,175,55,0.15)] to-[rgba(0,0,0,0.5)] shadow-[0_0_30px_rgba(212,175,55,0.1)]">
                 <div id="qrcode-container"></div>
                 <div class="min-w-0 flex-1">
-                    <p class="text-[#d4af37] text-[1.6vw] font-bold uppercase tracking-widest leading-none mb-3">Faz SCAN para pedir</p>
+                    <p class="text-[#d4af37] text-[1.6vw] font-bold uppercase tracking-widest leading-none mb-3">Escaneia para pedir</p>
                     <p class="text-white text-[2.8vw] font-black italic tracking-tight leading-none">MÚSICA</p>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -123,14 +129,9 @@
         let autoMode = false;
         let isProcessingAuto = false;
         let durationMs = 0; let localProgressMs = 0;
-        let lastQueueState = "";
+        let lastQueueState = ""; // <-- A variável de memória mágica!
         
         const redirectUri = window.location.href.split('?')[0].split('#')[0];
-
-        // LINKS REAIS PARA O CÉREBRO NÃO BUGAR
-        const SPOT_AUTH = "https://accounts.spotify.com/authorize";
-        const SPOT_TOKEN = "https://accounts.spotify.com/api/token";
-        const SPOT_API = "https://api.spotify.com/v1";
 
         function adjustFontSize() {
             const title = document.getElementById('tv-title');
@@ -156,12 +157,12 @@
             localStorage.setItem('code_verifier', verifier);
             const challenge = btoa(String.fromCharCode.apply(null, new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
             const scopes = 'user-modify-playback-state user-read-playback-state user-read-currently-playing';
-            window.location.href = `${SPOT_AUTH}?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&code_challenge_method=S256&code_challenge=${challenge}`;
+            window.location.href = `https://accounts.spotify.com/authorize?client_id=${spotifyClientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&code_challenge_method=S256&code_challenge=${challenge}`;
         }
 
         async function exchangeCode(code) {
             const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'authorization_code', code, redirect_uri: redirectUri, code_verifier: localStorage.getItem('code_verifier') });
-            const res = await fetch(SPOT_TOKEN, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
             const data = await res.json();
             if (data.access_token) {
                 localStorage.setItem('spotify_token', data.access_token);
@@ -174,14 +175,18 @@
         async function refreshTokens() {
             if (!refreshToken) return;
             const params = new URLSearchParams({ client_id: spotifyClientId, grant_type: 'refresh_token', refresh_token: refreshToken });
-            const res = await fetch(SPOT_TOKEN, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
+            const res = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });
             const data = await res.json();
             if (data.access_token) {
                 spotifyAccessToken = data.access_token;
                 localStorage.setItem('spotify_token', data.access_token);
-                expiresAt = Math.floor(Date.now() / 1000) + data.expires_in;
-                localStorage.setItem('expires_at', expiresAt);
+                localStorage.setItem('expires_at', Math.floor(Date.now() / 1000) + data.expires_in);
             }
+        }
+
+        async function disableRepeat() {
+            if (!spotifyAccessToken) return;
+            await fetch("https://api.spotify.com/v1/me/player/repeat?state=off", { method: 'PUT', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
         }
 
         async function monitor() {
@@ -189,13 +194,14 @@
             if (expiresAt && (Math.floor(Date.now() / 1000) > (expiresAt - 300))) await refreshTokens();
 
             try {
-                const res = await fetch(`${SPOT_API}/me/player`, { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                const res = await fetch("https://api.spotify.com/v1/me/player/currently-playing", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
                 if (res.status === 200) {
                     const data = await res.json(); if (!data.item) return;
                     
                     if (localStorage.getItem('current_uri') !== data.item.uri) {
                         isProcessingAuto = false;
                         localStorage.setItem('current_uri', data.item.uri);
+                        disableRepeat();
                     }
 
                     localProgressMs = data.progress_ms; durationMs = data.item.duration_ms;
@@ -208,7 +214,9 @@
                     adjustFontSize();
                     document.getElementById('tv-artist').innerText = data.item.artists[0].name;
                     document.getElementById('tv-cover').src = data.item.album.images[0].url;
+                    
                     document.getElementById('bg-blur').style.backgroundImage = `url('${data.item.album.images[0].url}')`;
+                    
                     document.getElementById('tv-total-time').innerText = format(durationMs);
 
                     if (isSuggester) { document.getElementById('tv-suggester-box').classList.remove('hidden'); document.getElementById('tv-suggester').innerText = currentUser; } 
@@ -226,7 +234,7 @@
             const { data } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(1);
             if (data?.length > 0) {
                 const s = data[0];
-                await fetch(`${SPOT_API}/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { 
+                await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(s.spotify_uri)}`, { 
                     method: 'POST', headers: { 'Authorization': 'Bearer ' + spotifyAccessToken }
                 });
                 localStorage.setItem('last_uri', s.spotify_uri);
@@ -240,11 +248,29 @@
         
         async function fetchQueue() {
             const { data: suggestions } = await supabaseClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false }).limit(6);
-            let currentState = suggestions?.length > 0 ? "supa_" + suggestions.map(s => s.id + "_" + s.votes).join("|") : "empty";
+            let currentState = "empty";
+            let qData = null;
 
+            // Constroi uma "impressão digital" (string) baseada no que está na fila
+            if (suggestions?.length > 0) {
+                currentState = "supa_" + suggestions.map(s => s.id + "_" + s.votes).join("|");
+            } else if (spotifyAccessToken) {
+                try {
+                    const res = await fetch("https://api.spotify.com/v1/me/player/queue", { headers: { 'Authorization': 'Bearer ' + spotifyAccessToken } });
+                    if (res.status === 200) {
+                        qData = await res.json();
+                        if (qData.queue) {
+                            currentState = "spot_" + qData.queue.slice(0, 6).map(t => t.uri).join("|");
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // SE A FILA ESTIVER IGUAL, BLOQUEIA O CÓDIGO E NÃO FAZ FLASH!
             if (currentState === lastQueueState) return; 
             lastQueueState = currentState;
 
+            // Se chegou aqui, é porque algo mudou. Então limpa e desenha.
             const container = document.getElementById('tv-queue-list'); 
             container.innerHTML = "";
 
@@ -254,6 +280,12 @@
                     div.innerHTML = `<img src="${s.cover_url}" class="w-[3.5vw] h-[3.5vw] rounded-md object-cover shadow-lg border border-white/10"> <div class="flex-1 min-w-0"><p class="text-[1.2vw] font-bold truncate text-white leading-tight">${s.title}</p><p class="text-[0.8vw] text-[#d4af37] uppercase font-black truncate mt-1">Pedido: ${s.user_name}</p></div>`;
                     container.appendChild(div);
                 });
+            } else if (qData && qData.queue) {
+                qData.queue.slice(0, 6).forEach(t => {
+                    const div = document.createElement('div'); div.className = "flex items-center gap-4 opacity-50 animate-in fade-in duration-500";
+                    div.innerHTML = `<img src="${t.album.images[0].url}" class="w-[3.5vw] h-[3.5vw] rounded-md object-cover grayscale-[30%]"> <div class="flex-1 min-w-0"><p class="text-[1.2vw] font-bold truncate text-white leading-tight">${t.name}</p><p class="text-[0.8vw] text-white/50 uppercase font-black truncate mt-1">Playlist Portinha</p></div>`;
+                    container.appendChild(div);
+                });
             }
         }
 
@@ -261,7 +293,7 @@
             setInterval(monitor, 2000);
             setInterval(() => { if(durationMs > 0) { localProgressMs += 1000; document.getElementById('tv-progress').style.width = (localProgressMs/durationMs*100)+'%'; document.getElementById('tv-current-time').innerText = format(localProgressMs); } }, 1000);
             supabaseClient.channel('q_tv').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
-            setInterval(fetchQueue, 5000);
+            setInterval(fetchQueue, 10000);
             fetchQueue();
         }
 
