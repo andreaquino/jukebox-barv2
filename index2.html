@@ -172,7 +172,7 @@
                 }
 
                 try {
-                    const res = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=20&market=PT`, { 
+                    const res = await fetch(`${API_PATH}/search?q=${encodeURIComponent(val)}&type=track&limit=15`, { 
                         headers: { 'Authorization': 'Bearer ' + token },
                         cache: 'no-store'
                     });
