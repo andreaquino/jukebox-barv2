@@ -26,7 +26,7 @@
             <img id="client-cover" src="https://via.placeholder.com/100" class="w-20 h-20 rounded-xl shadow-2xl object-cover">
             <div class="overflow-hidden flex-1">
                 <p class="text-[10px] uppercase tracking-[0.2em] text-[#d4af37] font-bold mb-1">No Ar na Portinha</p>
-                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">A carregar...</h2>
+                <h2 id="client-title" class="font-black text-xl truncate text-white leading-tight">Sincronizando...</h2>
                 <p id="client-artist" class="text-white/50 text-sm italic">...</p>
                 <div class="w-full bg-white/5 h-1.5 rounded-full mt-3 overflow-hidden">
                     <div id="client-progress" class="bg-[#d4af37] h-full" style="width: 0%;"></div>
@@ -38,10 +38,10 @@
     <main class="w-full max-w-lg flex-1">
         <div class="relative mb-8">
             <i data-lucide="search" class="absolute left-5 top-5 text-[#d4af37]/50 w-5 h-5"></i>
-            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
+            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música ou artista..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
         </div>
         <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
-        <h2 class="text-2xl font-black italic text-white uppercase mb-6">Fila da Taverna</h2>
+        <h2 class="text-2xl font-black italic text-white uppercase mb-6 tracking-tighter">Fila da Taverna</h2>
         <div id="queue-list" class="flex flex-col gap-4 pb-24"></div>
     </main>
 
@@ -50,70 +50,75 @@
     </footer>
 
     <script>
-        // CONFIGURAÇÃO SUPABASE ÚNICA (Resolve o erro de declaração repetida)
-        const SUPA_URL = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const SUPA_KEY = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+        // CONFIGURAÇÃO ÚNICA (Resolve o SyntaxError do print image_dbac21.jpg)
+        const FINAL_URL = 'https://tgbyxogyrugjfggugigf.supabase.co';
+        const FINAL_KEY = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+        const supa = window.supabase.createClient(FINAL_URL, FINAL_KEY);
         
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
-        // SPOTIFY (Links base64 para evitar que o chat os parta)
-        const URL_AUTH = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
-        const URL_API = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
+        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
+        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
         let currentToken = null;
 
-        async function getFreshToken() {
+        async function getToken() {
             if (currentToken) return currentToken;
-            const r = await fetch(URL_AUTH, { 
+            const res = await fetch(AUTH_URL, { 
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': 'Basic ' + btoa('3351b90e625048618d7f976a4f4b5a5a:8bc683ac2c3d4c9ba31041a857b62537') }, 
                 body: 'grant_type=client_credentials' 
             });
-            const d = await r.json();
-            return (currentToken = d.access_token);
+            const data = await res.json();
+            return (currentToken = data.access_token);
         }
 
-        let searchTimeout;
+        let sTimer;
         function debounceSearch() {
-            const query = document.getElementById('searchInput').value;
+            const q = document.getElementById('searchInput').value;
             const resDiv = document.getElementById('search-results');
-            if(query.length < 3) { resDiv.innerHTML = ""; return; }
+            if(q.length < 3) { resDiv.innerHTML = ""; return; }
             
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(async () => {
-                const token = await getFreshToken();
+            clearTimeout(sTimer);
+            sTimer = setTimeout(async () => {
+                const token = await getToken();
                 try {
-                    // FIX: Limit=10 para respeitar o limite do Spotify e evitar erro 400
-                    const sUrl = `${URL_API}/search?q=${encodeURIComponent(query)}&type=track&limit=10&market=PT`;
-                    const sRes = await fetch(sUrl, { headers: { 'Authorization': 'Bearer ' + token } });
+                    // FIX: limit=10 (conforme documentação do teu print image_a84e1f.png)
+                    const sRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
                     const sData = await sRes.json();
-                    
-                    if (!sData.tracks || !sData.tracks.items.length) return;
+                    if (!sData.tracks || !sData.tracks.items) return;
 
-                    // Filtro de Artistas (Blacklist)
                     const ids = sData.tracks.items.map(t => t.artists[0].id).join(',');
-                    const aRes = await fetch(`${URL_API}/artists?ids=${ids}`, { headers: { 'Authorization': 'Bearer ' + token } });
-                    const aData = await aRes.json();
-                    const genreMap = {};
-                    aData.artists.forEach(a => { genreMap[a.id] = a.genres.join(" ").toLowerCase(); });
+                    const aRes = await fetch(`${API_URL}/artists?ids=${ids}`, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    
+                    // SEGURANÇA: Se o Spotify der 403 (erro do teu print), o código não crasha
+                    if (!aRes.ok) {
+                        console.warn("Spotify Artists API falhou (403). A ignorar filtro de género.");
+                    }
+                    
+                    const aData = aRes.ok ? await aRes.json() : { artists: [] };
+                    const artMap = {};
+                    (aData.artists || []).forEach(a => { 
+                        if(a) artMap[a.id] = (a.genres || []).join(" ").toLowerCase(); 
+                    });
 
-                    // A BLACKLIST (Bloqueia o lixo, deixa passar Nirvana, Chemical Brothers, etc)
                     const forbidden = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha", "forro", "brega", "reggaeton"];
                     
-                    const filtered = sData.tracks.items.filter(track => {
-                        const artistName = track.artists[0].name.toLowerCase();
-                        const artistGenres = genreMap[track.artists[0].id] || "";
-                        
-                        const isMC = artistName.startsWith("mc ") || artistName.includes(" mc ") || artistName.startsWith("dj ");
-                        const isForbidden = forbidden.some(word => artistGenres.includes(word));
-                        
-                        return !isMC && !isForbidden;
+                    const filtered = sData.tracks.items.filter(t => {
+                        const name = t.artists[0].name.toLowerCase();
+                        const genres = artMap[t.artists[0].id] || "";
+                        const isMC = name.startsWith("mc ") || name.includes(" mc ") || name.startsWith("dj ");
+                        const isBadVibe = forbidden.some(v => genres.includes(v));
+                        return !isMC && !isBadVibe;
                     });
 
                     resDiv.innerHTML = "";
                     if (!filtered.length) {
-                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic'>Vibe não autorizada na Portinha! 🍷🚫</p>";
+                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra na Portinha! 🍷🚫</p>";
                         return;
                     }
 
@@ -121,58 +126,46 @@
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer mb-2";
                         div.onclick = () => addToQueue(song);
-                        div.innerHTML = `
-                            <img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> 
-                            <div class="flex-1 min-w-0">
-                                <p class="font-bold text-white text-sm truncate">${song.name}</p>
-                                <p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p>
-                            </div>
-                            <i data-lucide="plus" class="text-[#d4af37]"></i>`;
+                        div.innerHTML = `<img src="${song.album.images[2].url}" class="w-12 h-12 rounded-lg"> <div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${song.name}</p><p class="text-xs text-[#d4af37]/70 truncate">${song.artists[0].name}</p></div><i data-lucide="plus" class="text-[#d4af37]"></i>`;
                         resDiv.appendChild(div);
                     });
                     lucide.createIcons();
-                } catch(e) { console.error("Erro na busca:", e); }
+                } catch(e) { console.error("Erro na pesquisa:", e); }
             }, 500);
         }
 
         async function addToQueue(song) {
-            const userName = prompt("O teu nome?");
-            if(!userName) return;
-            await supaClient.from('queue').insert([{ 
+            const n = prompt("O teu nome?");
+            if(!n) return;
+            await supa.from('queue').insert([{ 
                 title: song.name, artist: song.artists[0].name, cover_url: song.album.images[0].url, 
-                spotify_uri: song.uri, user_name: userName.substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
+                spotify_uri: song.uri, user_name: n.substring(0,15), user_id: MY_ID, status: 'pending', votes: 0 
             }]);
-            alert("Música enviada para a fila! 🤘");
+            alert("Música enviada! 🤘");
             document.getElementById('searchInput').value = "";
             document.getElementById('search-results').innerHTML = "";
         }
 
         async function fetchQueue() {
-            const { data } = await supaClient.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
-            const listDiv = document.getElementById('queue-list');
-            listDiv.innerHTML = "";
+            const { data } = await supa.from('queue').select('*').eq('status', 'pending').order('votes', { ascending: false });
+            const list = document.getElementById('queue-list');
+            list.innerHTML = "";
             (data || []).forEach(s => {
                 const div = document.createElement('div');
                 div.className = "flex items-center gap-4 wood-panel p-4";
-                div.innerHTML = `
-                    <img src="${s.cover_url}" class="w-12 h-12 rounded-lg">
-                    <div class="flex-1 min-w-0">
-                        <p class="font-bold text-white text-sm truncate">${s.title}</p>
-                        <p class="text-xs text-[#d4af37]">${s.user_name}</p>
-                    </div>
-                    <button onclick="vote('${s.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${s.votes}</button>`;
-                listDiv.appendChild(div);
+                div.innerHTML = `<img src="${s.cover_url}" class="w-12 h-12 rounded-lg"><div class="flex-1 min-w-0"><p class="font-bold text-white text-sm truncate">${s.title}</p><p class="text-xs text-[#d4af37]">${s.user_name}</p></div><button onclick="vote('${s.id}')" class="btn-gold px-3 py-1 rounded-lg text-xs">❤️ ${s.votes}</button>`;
+                list.appendChild(div);
             });
         }
 
         async function vote(id) {
-            const { data } = await supaClient.from('queue').select('votes').eq('id', id).single();
-            await supaClient.from('queue').update({ votes: (data.votes || 0) + 1 }).eq('id', id);
+            const { data } = await supa.from('queue').select('votes').eq('id', id).single();
+            await supa.from('queue').update({ votes: (data.votes || 0) + 1 }).eq('id', id);
             fetchQueue();
         }
 
-        async function updatePlayback() {
-            const { data } = await supaClient.from('playback_status').select('*').eq('id', 1).single();
+        async function initSync() {
+            const { data } = await supa.from('playback_status').select('*').eq('id', 1).single();
             if (data) {
                 document.getElementById('client-title').innerText = data.title;
                 document.getElementById('client-artist').innerText = data.artist;
@@ -181,11 +174,8 @@
             }
         }
 
-        // Início
-        updatePlayback();
-        fetchQueue();
-        supaClient.channel('db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
-        supaClient.channel('live-play').on('postgres_changes', { event: '*', schema: 'public', table: 'playback_status' }, updatePlayback).subscribe();
+        initSync(); fetchQueue();
+        supa.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
 </body>
