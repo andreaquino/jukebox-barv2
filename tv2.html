@@ -75,6 +75,21 @@
     border-radius: 8px;
     filter: contrast(1.1);
 }
+
+        /* Moldura Dourada com brilho */
+.gold-card-frame {
+    border: 0.4vw solid #d4af37;
+    background: radial-gradient(circle at center, #151515 0%, #000000 100%);
+    box-shadow: 0 0 40px rgba(212,175,55,0.2), inset 0 0 20px rgba(212,175,55,0.1);
+}
+
+/* Texto Dourado Metálico */
+.text-gold-metallic {
+    background: linear-gradient(to bottom, #f3e5ab 0%, #d4af37 45%, #b38f2d 55%, #8a6d1d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.8));
+}
     </style>
 </head>
 <body>
@@ -135,14 +150,15 @@
                 <div id="tv-queue-list" class="flex flex-col gap-5 overflow-y-auto pr-2"></div>
             </div>
 
-           <div class="glass-panel p-[1.5vw] rounded-[2vw] flex items-center gap-[1.5vw] border border-[#d4af37]/30 bg-gradient-to-r from-[rgba(212,175,55,0.15)] to-[rgba(0,0,0,0.5)]">
+           <div class="gold-card-frame p-[2vw] rounded-[2.5vw] flex items-center gap-[2.5vw]">
     
-    <div id="qrcode-container"></div>
+    <div id="qrcode-container" class="bg-white p-[0.8vw] rounded-[1.2vw] shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+        </div>
     
-    <div class="min-w-0 flex-1">
-        <p class="text-[#d4af37] text-[1.6vw] font-bold uppercase tracking-widest leading-none mb-3">Faz SCAN para pedir</p>
-        
-        <p class="text-[#d4af37] text-[2.8vw] font-black italic tracking-tight leading-none">MÚSICA</p>
+    <div class="flex-1 min-w-0">
+        <p class="text-gold-metallic text-[2.8vw] font-[900] uppercase italic tracking-tighter leading-none">
+            Faz scan para pedir a tua música
+        </p>
     </div>
 </div>
 
