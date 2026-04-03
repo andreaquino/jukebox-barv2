@@ -82,9 +82,7 @@
             }, 3000);
         }
 
-        function clearAdminTimer() {
-            clearTimeout(adminTimer);
-        }
+        function clearAdminTimer() { clearTimeout(adminTimer); }
 
         async function removeSong(id) {
             if(confirm("Remover esta música?")) {
@@ -120,32 +118,58 @@
 
         let sTimer;
         function debounceSearch() {
-            const qOriginal = document.getElementById('searchInput').value;
-            if(qOriginal.length < 2) { document.getElementById('search-results').innerHTML = ""; return; }
+            const q = document.getElementById('searchInput').value;
+            if(q.length < 2) { document.getElementById('search-results').innerHTML = ""; return; }
             clearTimeout(sTimer);
+            
             sTimer = setTimeout(async () => {
-                
-                // --- CONFIGURAÇÃO DE CURADORIA (BLACKLIST) ---
-                // Adicionamos um "-" antes de cada género para o Spotify subtrair estas opções dos resultados.
-                const blacklist = " -genre:pimba -genre:funk-brazil -genre:sertanejo -genre:sertanejo-universitario -genre:axe -genre:pagode -genre:reggaeton -genre:k-pop";
-                const finalQuery = qOriginal + blacklist;
-                
                 const token = await getSpotifyToken();
                 try {
-                    // Corrigido para a API oficial do Spotify com interpolação de string garantida
-                    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(finalQuery)}&type=track&limit=5`, { 
+                    // PASSO 1: Pesquisa normal de músicas
+                    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=10`, { 
                         headers: { 'Authorization': 'Bearer ' + token } 
                     });
                     const data = await res.json();
                     const results = document.getElementById('search-results'); 
                     results.innerHTML = "";
 
-                    if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
-                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Nenhum resultado... (ou o estilo não combina com a Portinha 🍷)</p>";
+                    if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) return;
+
+                    // PASSO 2: Apanhar os IDs dos Artistas das músicas que o Spotify devolveu
+                    const artistIds = [...new Set(data.tracks.items.map(t => t.artists[0].id))].slice(0, 10);
+
+                    // PASSO 3: Perguntar ao Spotify quais são as tags reais destes artistas
+                    const artistRes = await fetch(`https://api.spotify.com/v1/artists?ids=${artistIds.join(',')}`, {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    const artistData = await artistRes.json();
+
+                    // Criar um dicionário mental com as tags de cada artista (ex: id: "rock grunge alternative")
+                    const artistGenres = {};
+                    artistData.artists.forEach(a => {
+                        artistGenres[a.id] = a.genres.join(" ").toLowerCase();
+                    });
+
+                    // AS VIBES PERMITIDAS NA PORTINHA (Podem ser palavras genéricas)
+                    const allowedVibes = ["rock", "metal", "grunge", "punk", "indie", "blues", "jazz", "folk", "alternative"];
+
+                    // PASSO 4: Filtrar a lista - A música só passa se as tags do artista tiverem uma das palavras permitidas
+                    const allowedTracks = data.tracks.items.filter(song => {
+                        const genresString = artistGenres[song.artists[0].id];
+                        
+                        // Se o artista não tiver género nenhum atribuído, ou se tiver, verificamos se bate certo
+                        if (!genresString) return false; // Bloqueia artistas desconhecidos sem género
+                        
+                        return allowedVibes.some(vibe => genresString.includes(vibe));
+                    });
+
+                    if (allowedTracks.length === 0 && data.tracks.items.length > 0) {
+                        results.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não combina com a Portinha! Tenta Rock, Indie ou Jazz 🤘🍷</p>";
                         return;
                     }
 
-                    data.tracks.items.forEach(song => {
+                    // PASSO 5: Mostrar as músicas aprovadas
+                    allowedTracks.slice(0, 5).forEach(song => {
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-4 wood-panel p-4 active:scale-95 transition-all cursor-pointer";
                         div.onclick = () => addToQueue(song);
@@ -154,7 +178,7 @@
                     });
                     lucide.createIcons();
                 } catch(e) { console.error("Erro pesquisa:", e); }
-            }, 300);
+            }, 400);
         }
 
         async function addToQueue(song) {
