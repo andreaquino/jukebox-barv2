@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portinha - Jukebox Digital</title>
+    <title>Portinha - Jukebox </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -38,7 +38,7 @@
     <main class="w-full max-w-lg flex-1">
         <div class="relative mb-8">
             <i data-lucide="search" class="absolute left-5 top-5 text-[#d4af37]/50 w-5 h-5"></i>
-            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música ou artista..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
+            <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Pesquisa música..." class="w-full bg-black/60 border border-[#d4af37]/30 rounded-2xl pl-14 pr-6 py-5 text-white outline-none text-lg">
         </div>
         <div id="search-results" class="mb-8 flex flex-col gap-3"></div>
         <h2 class="text-2xl font-black italic text-white uppercase mb-6">Fila da Taverna</h2>
@@ -50,16 +50,17 @@
     </footer>
 
     <script>
-        // CONFIGURAÇÃO SUPABASE (Corrigida declaração única)
-        const supabaseUrl = 'https://tgbyxogyrugjfggugigf.supabase.co';
-        const supabaseKey = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        // CONFIGURAÇÃO ÚNICA DO SUPABASE
+        const SUPABASE_URL = 'https://tgbyxogyrugjfggugigf.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_MJFbecAQa8GZ4LdNb5ruew_9N9bg2ro';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
         const MY_ID = localStorage.getItem('jukebox_user_id') || 'u_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('jukebox_user_id', MY_ID);
 
         // SPOTIFY API (Links reais descodificados)
-        const AUTH_URL = "https://accounts.spotify.com/api/token";
-        const API_URL = "https://api.spotify.com/v1";
+        const AUTH_URL = atob("aHR0cHM6Ly9hY2NvdW50cy5zcG90aWZ5LmNvbS9hcGkvdG9rZW4=");
+        const API_URL = atob("aHR0cHM6Ly9hcGkuc3BvdGlmeS5jb20vdjE=");
         let cachedToken = null;
 
         async function getToken() {
@@ -83,14 +84,14 @@
             sTimer = setTimeout(async () => {
                 const token = await getToken();
                 try {
-                    // FIX: Limit=10 e Market=PT para evitar erro 400
+                    // FIX: Limit=10 e Market=PT para evitar erros 400
                     const searchRes = await fetch(`${API_URL}/search?q=${encodeURIComponent(q)}&type=track&limit=10&market=PT`, {
                         headers: { 'Authorization': 'Bearer ' + token }
                     });
                     const searchData = await searchRes.json();
                     if (!searchData.tracks || !searchData.tracks.items.length) return;
 
-                    // Obter Géneros dos Artistas
+                    // Obter Géneros para filtrar (Blacklist)
                     const ids = searchData.tracks.items.map(t => t.artists[0].id).join(',');
                     const artRes = await fetch(`${API_URL}/artists?ids=${ids}`, {
                         headers: { 'Authorization': 'Bearer ' + token }
@@ -99,8 +100,8 @@
                     const artGenres = {};
                     artData.artists.forEach(a => { artGenres[a.id] = a.genres.join(" ").toLowerCase(); });
 
-                    // FILTRO BLACKLIST (Barra o lixo, deixa passar o Nirvana)
-                    const blacklist = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha"];
+                    // A BLACKLIST (Bloqueia o lixo, deixa passar Nirvana e Chemical Brothers)
+                    const blacklist = ["funk carioca", "funk paulista", "pimba", "sertanejo", "pagode", "arrocha", "pisadinha", "forro", "brega", "reggaeton", "trap brasileiro"];
                     
                     const filtered = searchData.tracks.items.filter(t => {
                         const name = t.artists[0].name.toLowerCase();
@@ -112,7 +113,7 @@
 
                     resDiv.innerHTML = "";
                     if (!filtered.length) {
-                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic'>Vibe não autorizada! 🍷🚫</p>";
+                        resDiv.innerHTML = "<p class='text-[#d4af37] text-center p-4 italic font-bold'>Esta vibe não entra na Portinha! 🍷🚫</p>";
                         return;
                     }
 
@@ -154,12 +155,21 @@
 
         async function vote(id) {
             const { data } = await supabase.from('queue').select('votes').eq('id', id).single();
-            await supabase.from('queue').update({ votes: (data.votes || 0) + 1 }).eq('id', id);
+            await supabase.update({ votes: (data.votes || 0) + 1 }).from('queue').eq('id', id);
             fetchQueue();
         }
 
-        // Sincronização inicial
-        fetchQueue();
+        async function initSync() {
+            const { data } = await supabase.from('playback_status').select('*').eq('id', 1).single();
+            if (data) {
+                document.getElementById('client-title').innerText = data.title;
+                document.getElementById('client-artist').innerText = data.artist;
+                document.getElementById('client-cover').src = data.cover_url;
+                document.getElementById('client-progress').style.width = ((data.progress_ms / data.duration_ms) * 100) + '%';
+            }
+        }
+
+        initSync(); fetchQueue();
         supabase.channel('q').on('postgres_changes', { event: '*', schema: 'public', table: 'queue' }, fetchQueue).subscribe();
         lucide.createIcons();
     </script>
