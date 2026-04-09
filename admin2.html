@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portinha - Painel Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif; color: #f3e5ab; min-height: 100vh; margin: 0;
+            background: linear-gradient(rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.9)), url('bar_background_portinha.jpg');
+            background-size: cover; background-position: center; background-attachment: fixed; background-color: #000;
+            user-select: none;
+        }
+        .wood-panel {
+            background: rgba(15, 7, 5, 0.95);
+            backdrop-filter: blur(16px);
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, #d4af37, #f3e5ab);
+            color: #000;
+            font-weight: 900;
+            border: none;
+            transition: all 0.3s ease;
+        }
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(212, 175, 55, 0.4);
+        }
+        .btn-red {
+            background: linear-gradient(135deg, #8B0000, #B22222);
+            color: white;
+            font-weight: 900;
+        }
+        .btn-blue {
+            background: linear-gradient(135deg, #1e40af, #3b82f6);
+            color: white;
+            font-weight: 900;
+        }
+        .gold-text { color: #d4af37; }
+        .silver-text { color: #c0c0c0; }
+        .stat-box {
+            background: rgba(30, 30, 40, 0.8);
+            border-left: 4px solid #d4af37;
+            border-radius: 12px;
+        }
+        .danger-item {
+            background: rgba(139, 0, 0, 0.2);
+            border: 1px solid rgba(139, 0, 0, 0.4);
+            border-radius: 12px;
+        }
+        .success-item {
+            background: rgba(0, 100, 0, 0.2);
+            border: 1px solid rgba(0, 100, 0, 0.4);
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+    <!-- Header -->
+    <div class="max-w-6xl mx-auto">
+        <div class="wood-panel p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <img src="logo.png" class="w-16 h-16 rounded-xl border-2 border-gold/30">
+                    <div>
+                        <h1 class="text-2xl md:text-3xl font-black text-white">Portinha · Painel Admin</h1>
+                        <p class="silver-text text-sm">Gestão do Sistema Jukebox</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="window.location.href='index2.html'" class="px-4 py-2 rounded-lg bg-black/50 border border-gold/30 text-gold hover:bg-gold/10">
+                        <i data-lucide="users"></i> Cliente
+                    </button>
+                    <button onclick="window.location.href='tv2.html'" class="px-4 py-2 rounded-lg bg-black/50 border border-gold/30 text-gold hover:bg-gold/10">
+                        <i data-lucide="tv"></i> TV
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="stat-box p-5">
+                <div class="text-3xl font-black gold-text" id="stat-queue">0</div>
+                <div class="text-sm silver-text">Músicas na Fila</div>
+            </div>
+            <div class="stat-box p-5">
+                <div class="text-3xl font-black gold-text" id="stat-votes">0</div>
+                <div class="text-sm silver-text">Votos Totais</div>
+            </div>
+            <div class="stat-box p-5">
+                <div class="text-3xl font-black gold-text" id="stat-users">0</div>
+                <div class="text-sm silver-text">Clientes Ativos</div>
+            </div>
+            <div class="stat-box p-5">
+                <div class="text-3xl font-black gold-text" id="stat-banned">0</div>
+                <div class="text-sm silver-text">Artistas Banidos</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left Column: Queue Management -->
+            <div class="space-y-6">
+                <!-- Current Queue -->
+                <div class="wood-panel p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-black gold-text">
+                            <i data-lucide="list-music"></i> Fila Atual
+                        </h2>
+                        <button onclick="refreshQueue()" class="px-3 py-1 rounded-lg bg-gold/20 border border-gold/30 text-gold text-sm">
+                            <i data-lucide="refresh-cw"></i> Atualizar
+                        </button>
+                    </div>
+                    <div id="queue-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        <div class="text-center silver-text p-4">A carregar fila...</div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="wood-panel p-6">
+                    <h2 class="text-xl font-black gold-text mb-4">
+                        <i data-lucide="zap"></i> Ações Rápidas
+                    </h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button onclick="skipCurrent()" class="btn-blue p-3 rounded-lg flex items-center justify-center gap-2">
+                            <i data-lucide="skip-forward"></i> Próxima
+                        </button>
+                        <button onclick="clearQueue()" class="btn-red p-3 rounded-lg flex items-center justify-center gap-2">
+                            <i data-lucide="trash-2"></i> Limpar Fila
+                        </button>
+                        <button onclick="refreshStats()" class="p-3 rounded-lg bg-black/50 border border-gold/30 text-gold flex items-center justify-center gap-2">
+                            <i data-lucide="bar-chart"></i> Estatísticas
+                        </button>
+                        <button onclick="exportData()" class="p-3 rounded-lg bg-black/50 border border-gold/30 text-gold flex items-center justify-center gap-2">
+                            <i data-lucide="download"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Blacklist Management -->
+            <div class="space-y-6">
+                <!-- Blacklist -->
+                <div class="wood-panel p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-black gold-text">
+                            <i data-lucide="shield-alert"></i> Blacklist
+                        </h2>
+                        <button onclick="showAddForm()" class="btn-red px-3 py-1 rounded-lg flex items-center gap-2">
+                            <i data-lucide="plus"></i> Adicionar
+                        </button>
+                    </div>
+
+                    <!-- Add Form (hidden by default) -->
+                    <div id="add-form" class="hidden mb-4 p-4 danger-item">
+                        <h3 class="font-bold mb-3 silver-text">Adicionar à Blacklist</h3>
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <input type="text" id="bl-name" placeholder="Nome do Artista/Música"
+                                       class="bg-black/50 border border-red-500/30 rounded-lg p-2 text-white">
+                                <input type="text" id="bl-reason" placeholder="Motivo (opcional)"
+                                       class="bg-black/50 border border-red-500/30 rounded-lg p-2 text-white">
+                            </div>
+                            <div class="flex gap-2">
+                                <select id="bl-type" class="bg-black/50 border border-red-500/30 rounded-lg p-2 text-white flex-1">
+                                    <option value="artist">Artista</option>
+                                    <option value="track">Música</option>
+                                    <option value="album">Álbum</option>
+                                </select>
+                                <button onclick="addToBlacklist()" class="btn-red px-4 rounded-lg">
+                                    Adicionar
+                                </button>
+                                <button onclick="hideAddForm()" class="px-4 rounded-lg bg-black/50 border border-red-500/30 text-red-400">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Blacklist Items -->
+                    <div id="blacklist-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                        <div class="text-center silver-text p-4">A carregar blacklist...</div>
+                    </div>
+                </div>
+
+                <!-- System Info -->
+                <div class="wood-panel p-6">
+                    <h2 class="text-xl font-black gold-text mb-4">
+                        <i data-lucide="server"></i> Sistema
+                    </h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="silver-text">Status Supabase:</span>
+                            <span id="db-status" class="px-2 py-1 rounded text-xs font-bold bg-green-900/50 text-green-400">Conectado</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="silver-text">Última Atualização:</span>
+                            <span id="last-update" class="text-gold">--:--:--</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="silver-text">Versão:</span>
+                            <span class="text-gold">Jukebox v2.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center silver-text text-sm">
+            Portinha Jukebox · Sistema de Gestão · {currentYear}
+        </div>
+    </div>
+
+    <script>
+        // Supabase Configuration
+        const supabaseUrl = 'https://ipfizmlnqtnvbfbzjjrc.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwZml6bWxucXRudmJmYnpqanJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2MjgwMDgsImV4cCI6MjA0OTIwNDAwOH0.9lWmCusn1N3fGp4eXk9xJ7O3Zz4q8Q1wKjvL2mM1n3o';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        // Current year for footer
+        document.addEventListener('DOMContentLoaded', function() {
+            document.body.innerHTML = document.body.innerHTML.replace('{currentYear}', new Date().getFullYear());
+            lucide.createIcons();
+            loadAllData();
+            setInterval(loadAllData, 10000); // Update every 10 seconds
+        });
+
+        // Load all data
+        async function loadAllData() {
+            await loadQueue();
+            await loadStats();
+            await loadBlacklist();
+            updateTimestamp();
+        }
+
+        // Load current queue
+        async function loadQueue() {
+            try {
+                const { data, error } = await supabase
+                    .from('voted_songs')
+                    .select('*')
+                    .eq('was_played', false)
+                    .order('vote_count', { ascending: false })
+                    .order('added_at', { ascending: true });
+
+                if (error) throw error;
+
+                const queueList = document.getElementById('queue-list');
+                if (!queueList) return;
+
+                if (!data || data.length === 0) {
+                    queueList.innerHTML = '<div class="text-center silver-text p-4">Fila vazia</div>';
+                    return;
+                }
+
+                queueList.innerHTML = data.map(song => `
+                    <div class="flex justify-between items-center p-3 rounded-lg bg-black/30 border border-gold/20">
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-white truncate">${song.title}</div>
+                            <div class="text-sm silver-text truncate">${song.artist}</div>
+                            <div class="text-xs text-gold mt-1">Votos: ${song.vote_count}</div>
+                        </div>
+                        <button onclick="removeSong('${song.id}')" class="ml-3 text-red-400 hover:text-red-300">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading queue:', error);
+                document.getElementById('queue-list').innerHTML =
+                    '<div class="text-center text-red-500 p-4">Erro ao carregar fila</div>';
+            }
+        }
+
+        // Load statistics
+        async function loadStats() {
+            try {
+                // Queue count
+                const { count: queueCount } = await supabase
+                    .from('voted_songs')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('was_played', false);
+
+                // Total votes
+                const { data: songs } = await supabase
+                    .from('voted_songs')
+                    .select('vote_count')
+                    .eq('was_played', false);
+
+                const totalVotes = songs ? songs.reduce((sum, song) => sum + song.vote_count, 0) : 0;
+
+                // Active users (last 30 minutes)
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60000).toISOString();
+                const { count: activeUsers } = await supabase
+                    .from('client_sessions')
+                    .select('*', { count: 'exact', head: true })
+                    .gte('last_active', thirtyMinutesAgo);
+
+                // Banned artists count (from your blacklist array)
+                const bannedArtists = 142; // From your BANNED_ARTISTS array count
+
+                // Update stats
+                document.getElementById('stat-queue').textContent = queueCount || 0;
+                document.getElementById('stat-votes').textContent = totalVotes;
+                document.getElementById('stat-users').textContent = activeUsers || 0;
+                document.getElementById('stat-banned').textContent = bannedArtists;
+
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load blacklist
+        async function loadBlacklist() {
+            try {
+                const { data, error } = await supabase
+                    .from('blacklist')
+                    .select('*')
+                    .order('added_at', { ascending: false });
+
+                if (error) throw error;
+
+                const blacklistList = document.getElementById('blacklist-list');
+                if (!blacklistList) return;
+
+                if (!data || data.length === 0) {
+                    blacklistList.innerHTML = '<div class="text-center silver-text p-4">Blacklist vazia</div>';
+                    return;
+                }
+
+                blacklistList.innerHTML = data.map(item => `
+                    <div class="danger-item p-3">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="px-2 py-1 rounded text-xs font-bold ${getTypeColor(item.type)}">
+                                        ${item.type.toUpperCase()}
+                                    </span>
+                                    <div class="font-bold text-white truncate">${item.name}</div>
+                                </div>
+                                <div class="text-sm silver-text truncate">ID: ${item.spotify_id}</div>
+                                ${item.reason ? `<div class="text-xs text-red-300 mt-1">Motivo: ${item.reason}</div>` : ''}
+                                <div class="text-xs text-gray-500 mt-2">Adicionado: ${new Date(item.added_at).toLocaleDateString('pt-PT')}</div>
+                            </div>
+                            <button onclick="removeFromBlacklist('${item.id}')" class="ml-3 text-red-400 hover:text-red-300">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+
+                lucide.createIcons();
+            } catch (error) {
+                console.error('Error loading blacklist:', error);
+                document.getElementById('blacklist-list').innerHTML =
+                    '<div class="text-center text-red-500 p-4">Erro ao carregar blacklist</div>';
+            }
+        }
+
+        function getTypeColor(type) {
+            switch(type) {
+                case 'artist': return 'bg-purple-900/50 text-purple-300';
+                case 'track': return 'bg-blue-900/50 text-blue-300';
+                case 'album': return 'bg-green-900/50 text-green-300';
+                default: return 'bg-gray-900/50 text-gray-300';
+            }
+        }
+
+        // Blacklist management functions
+        function showAddForm() {
+            document.getElementById('add-form').classList.remove('hidden');
+        }
+
+        function hideAddForm() {
+            document.getElementById('add-form').classList.add('hidden');
+            // Clear form
+            document.getElementById('bl-name').value = '';
+            document.getElementById('bl-reason').value = '';
+        }
+
+        async function addToBlacklist() {
+            const name = document.getElementById('bl-name').value.trim();
+            const type = document.getElementById('bl-type').value;
+            const reason = document.getElementById('bl-reason').value.trim();
+
+            if (!name) {
+                alert('Por favor, introduza um nome');
+                return;
+            }
+
+            // Generate a spotify_id placeholder
+            const spotifyId = `manual-${type}-${Date.now()}`;
+
+            try {
+                const { error } = await supabase
+                    .from('blacklist')
+                    .insert({
+                        type: type,
+                        spotify_id: spotifyId,
+                        name: name,
+                        reason: reason || null,
+                        added_at: new Date().toISOString(),
+                        added_by: 'admin'
+                    });
+
+                if (error) throw error;
+
+                alert('Adicionado à blacklist com sucesso!');
+                hideAddForm();
+                loadBlacklist();
+                loadStats();
+
+            } catch (error) {
+                console.error('Error adding to blacklist:', error);
+                alert('Erro ao adicionar à blacklist: ' + error.message);
+            }
+        }
+
+        async function removeFromBlacklist(id) {
+            if (!confirm('Remover este item da blacklist?')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('blacklist')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                alert('Removido da blacklist!');
+                loadBlacklist();
+                loadStats();
+
+            } catch (error) {
+                console.error('Error removing from blacklist:', error);
+                alert('Erro ao remover: ' + error.message);
+            }
+        }
+
+        // Queue management functions
+        async function removeSong(id) {
+            if (!confirm('Remover esta música da fila?')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('voted_songs')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                alert('Música removida da fila!');
+                loadQueue();
+                loadStats();
+
+            } catch (error) {
+                console.error('Error removing song:', error);
+                alert('Erro ao remover música: ' + error.message);
+            }
+        }
+
+        async function clearQueue() {
+            if (!confirm('Limpar TODA a fila? Esta ação não pode ser desfeita.')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('voted_songs')
+                    .delete()
+                    .eq('was_played', false);
+
+                if (error) throw error;
+
+                alert('Fila limpa com sucesso!');
+                loadQueue();
+                loadStats();
+
+            } catch (error) {
+                console.error('Error clearing queue:', error);
+                alert('Erro ao limpar fila: ' + error.message);
+            }
+        }
+
+        function skipCurrent() {
+            // This would require your Spotify API integration
+            alert('Funcionalidade de "Próxima" requer integração com Spotify API');
+        }
+
+        function refreshQueue() {
+            loadQueue();
+            alert('Fila atualizada!');
+        }
+
+        function refreshStats() {
+            loadStats();
+            alert('Estatísticas atualizadas!');
+        }
+
+        function exportData() {
+            alert('Funcionalidade de exportação em desenvolvimento');
+            // Could implement CSV export here
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('last-update').textContent =
+                now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+    </script>
+</body>
+</html>
